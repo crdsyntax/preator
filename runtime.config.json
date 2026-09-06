@@ -1,0 +1,45 @@
+{
+  "$schema": "./schemas/runtime.config.schema.json",
+  "version": "1.0",
+  "runtime": {
+    "log_level": "info",
+    "sessions_dir": ".agent/sessions",
+    "max_delegation_depth": 3,
+    "max_concurrency": 4
+  },
+  "workspace": {
+    "boundaries": {
+      "allowed": [
+        "agents",
+        "skills",
+        "evaluations",
+        "benchmarks",
+        "runtime",
+        "scripts",
+        "docs",
+        "src",
+        "migrations",
+        "app",
+        "pkg"
+      ],
+      "denied": [
+        "node_modules",
+        ".git",
+        ".env"
+      ]
+    }
+  },
+  "policy": {
+    "denied_tools": [],
+    "phase_rules": {
+      "REQUEST": { "allowed_tools": ["view_file", "list_dir", "grep_search", "search_web", "read"] },
+      "ANALYZE": { "allowed_tools": ["view_file", "list_dir", "grep_search", "search_web", "read"] },
+      "PLAN": { "allowed_tools": ["view_file", "list_dir", "grep_search", "read"] },
+      "REVIEW": { "allowed_tools": ["view_file", "list_dir", "grep_search", "read"] },
+      "EXECUTE": { "allowed_tools": ["*"] },
+      "VERIFY": { "allowed_tools": ["*"] },
+      "DOCUMENT": { "allowed_tools": ["write_to_file", "replace_file_content", "multi_replace_file_content", "view_file", "read", "write"] },
+      "COMPLETE": { "allowed_tools": [] }
+    }
+  }
+}

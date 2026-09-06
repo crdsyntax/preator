@@ -1,0 +1,12 @@
+﻿{
+  "$schema": "https://raw.githubusercontent.com/google/antigravity/main/schemas/hooks.schema.json",
+  "version": "1.0",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "command": "bun run runtime/hosts/antigravity.js"
+      }
+    ]
+  }
+}

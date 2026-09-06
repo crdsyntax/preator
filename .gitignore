@@ -1,0 +1,10 @@
+﻿node_modules/
+.DS_Store
+*.log
+.env
+.env.*
+.agent/
+benchmarks/runs/
+dist/
+build/
+coverage/

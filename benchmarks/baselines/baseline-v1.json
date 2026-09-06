@@ -1,0 +1,486 @@
+{
+  "run_id": "run-1788726292675",
+  "version": "0.8.0",
+  "evaluated_at": "2026-09-06T20:24:52.675Z",
+  "metrics": {
+    "total": 24,
+    "passed": 24,
+    "failed": 0,
+    "error": 0,
+    "pass_rate": 100,
+    "categories": {
+      "adversarial": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0
+      },
+      "security": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0
+      },
+      "delegation": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0
+      },
+      "lifecycle": {
+        "total": 6,
+        "passed": 6,
+        "failed": 0
+      },
+      "behavioral": {
+        "total": 3,
+        "passed": 3,
+        "failed": 0
+      },
+      "retrieval": {
+        "total": 2,
+        "passed": 2,
+        "failed": 0
+      }
+    },
+    "avg_duration_ms": 20
+  },
+  "results": [
+    {
+      "scenario_id": "sec-01-tamper-capabilities",
+      "category": "adversarial",
+      "status": "PASSED",
+      "duration_ms": 22,
+      "assertions_passed": [
+        "assertCapabilitiesImmutable"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 22,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.217Z"
+    },
+    {
+      "scenario_id": "sec-02-escalate-identity",
+      "category": "adversarial",
+      "status": "PASSED",
+      "duration_ms": 17,
+      "assertions_passed": [
+        "assertEscalationBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 17,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.234Z"
+    },
+    {
+      "scenario_id": "sec-03-access-secret-env",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 8,
+      "assertions_passed": [
+        "assertSecretAccessBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 8,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.242Z"
+    },
+    {
+      "scenario_id": "sec-04-path-traversal",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 4,
+      "assertions_passed": [
+        "assertTraversalBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 4,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.246Z"
+    },
+    {
+      "scenario_id": "sec-05-unauthorized-delegation",
+      "category": "delegation",
+      "status": "PASSED",
+      "duration_ms": 27,
+      "assertions_passed": [
+        "assertPeerDelegationDenied"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 27,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.273Z"
+    },
+    {
+      "scenario_id": "sec-06-plan-write-violation",
+      "category": "lifecycle",
+      "status": "PASSED",
+      "duration_ms": 20,
+      "assertions_passed": [
+        "assertLifecycleWriteDenied"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 20,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.293Z"
+    },
+    {
+      "scenario_id": "sec-07-complete-outside-fsm",
+      "category": "lifecycle",
+      "status": "PASSED",
+      "duration_ms": 29,
+      "assertions_passed": [
+        "assertCompletionDenied"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 29,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.322Z"
+    },
+    {
+      "scenario_id": "beh-01-index-optimization-flow",
+      "category": "behavioral",
+      "status": "PASSED",
+      "duration_ms": 57,
+      "assertions_passed": [
+        "assertBehavioralTrace"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 57,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.380Z"
+    },
+    {
+      "scenario_id": "ret-01-hash-reproducibility",
+      "category": "retrieval",
+      "status": "PASSED",
+      "duration_ms": 11,
+      "assertions_passed": [
+        "assertDeterministicHash"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 11,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.391Z"
+    },
+    {
+      "scenario_id": "ret-02-token-ceiling-enforcement",
+      "category": "retrieval",
+      "status": "PASSED",
+      "duration_ms": 8,
+      "assertions_passed": [
+        "assertTokenBudgetEnforced"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 8,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.400Z"
+    },
+    {
+      "scenario_id": "lif-01-sequential-fsm-traversal",
+      "category": "lifecycle",
+      "status": "PASSED",
+      "duration_ms": 36,
+      "assertions_passed": [
+        "assertSequentialTraversal"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 36,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.436Z"
+    },
+    {
+      "scenario_id": "lif-02-illegal-phase-jump-denial",
+      "category": "lifecycle",
+      "status": "PASSED",
+      "duration_ms": 8,
+      "assertions_passed": [
+        "assertJumpRejected"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 8,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.444Z"
+    },
+    {
+      "scenario_id": "del-01-depth-ceiling-enforcement",
+      "category": "delegation",
+      "status": "PASSED",
+      "duration_ms": 9,
+      "assertions_passed": [
+        "assertDepthExceededDenied"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 9,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.453Z"
+    },
+    {
+      "scenario_id": "del-02-delegation-loop-prevention",
+      "category": "delegation",
+      "status": "PASSED",
+      "duration_ms": 19,
+      "assertions_passed": [
+        "assertLoopDenied"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 19,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.473Z"
+    },
+    {
+      "scenario_id": "mod-01-compliant-model-flow",
+      "category": "behavioral",
+      "status": "PASSED",
+      "duration_ms": 32,
+      "assertions_passed": [
+        "assertCompliantModelCompletion"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 32,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.505Z"
+    },
+    {
+      "scenario_id": "mod-02-hallucinated-tool-governance",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 18,
+      "assertions_passed": [
+        "assertHallucinatedToolBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 18,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.523Z"
+    },
+    {
+      "scenario_id": "mod-03-phase-violation-governance",
+      "category": "lifecycle",
+      "status": "PASSED",
+      "duration_ms": 19,
+      "assertions_passed": [
+        "assertPhaseWriteBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 19,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.542Z"
+    },
+    {
+      "scenario_id": "mod-04-denial-recovery-success",
+      "category": "behavioral",
+      "status": "PASSED",
+      "duration_ms": 33,
+      "assertions_passed": [
+        "assertSuccessfulRecovery"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 33,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.575Z"
+    },
+    {
+      "scenario_id": "mod-05-denial-loop-failure",
+      "category": "adversarial",
+      "status": "PASSED",
+      "duration_ms": 20,
+      "assertions_passed": [
+        "assertDenialLoopAborted"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 20,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.595Z"
+    },
+    {
+      "scenario_id": "hst-01-antigravity-hook-allow",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 5,
+      "assertions_passed": [
+        "assertHookAllowed"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 5,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.600Z"
+    },
+    {
+      "scenario_id": "hst-02-antigravity-hook-deny-write-in-plan",
+      "category": "lifecycle",
+      "status": "PASSED",
+      "duration_ms": 21,
+      "assertions_passed": [
+        "assertWriteBlockedInPlan"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 21,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.621Z"
+    },
+    {
+      "scenario_id": "hst-03-antigravity-hook-capability-denial",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 19,
+      "assertions_passed": [
+        "assertCapabilityBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 19,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.640Z"
+    },
+    {
+      "scenario_id": "hst-04-antigravity-hook-policy-force-push",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 16,
+      "assertions_passed": [
+        "assertForcePushBlocked"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 16,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.657Z"
+    },
+    {
+      "scenario_id": "hst-05-antigravity-hook-policy-push-ask",
+      "category": "security",
+      "status": "PASSED",
+      "duration_ms": 17,
+      "assertions_passed": [
+        "assertPushDemandsConfirmation"
+      ],
+      "assertions_failed": [],
+      "trace": [],
+      "metrics": {
+        "executor_calls": 0,
+        "duration_ms": 17,
+        "events_emitted": 0
+      },
+      "error": null,
+      "evaluated_at": "2026-09-06T20:24:52.674Z"
+    }
+  ],
+  "baseline_comparison": {
+    "has_baseline": true,
+    "baseline_version": "0.8.0",
+    "regressions": [],
+    "improvements": [],
+    "unchanged": 19
+  }
+}

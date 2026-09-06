@@ -1,0 +1,34 @@
+{
+  "name": "praetor",
+  "version": "0.1.1",
+  "description": "Praetor: Universal Governed Agent Runtime Framework",
+  "type": "module",
+  "main": "runtime/index.js",
+  "exports": {
+    ".": "./runtime/index.js",
+    "./core": "./runtime/core/index.js",
+    "./providers": "./runtime/providers/index.js",
+    "./hosts": "./runtime/hosts/index.js",
+    "./evaluation": "./runtime/evaluation/index.js"
+  },
+  "scripts": {
+    "agents:audit": "bun scripts/audit-agent-runtime.js",
+    "agents:conformance": "bun evaluations/architectural/conformance.js",
+    "agents:evaluate": "bun scripts/evaluate-agent-runtime.js",
+    "agents:enforce": "bun scripts/verify-host-enforcement.js",
+    "test": "bun scripts/audit-agent-runtime.js && bun evaluations/security/hardening.js && bun evaluations/architectural/conformance.js && bun scripts/evaluate-agent-runtime.js",
+    "test:hardening": "bun evaluations/security/hardening.js"
+  },
+  "keywords": [
+    "agents",
+    "runtime",
+    "governance",
+    "fsm",
+    "security",
+    "ai-agents",
+    "benchmarking",
+    "stack-agnostic"
+  ],
+  "author": "Agents Framework Contributors",
+  "license": "MIT"
+}
