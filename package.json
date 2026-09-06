@@ -1,6 +1,6 @@
 {
   "name": "praetor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Praetor: Universal Governed Agent Runtime Framework",
   "type": "module",
   "main": "runtime/index.js",
@@ -11,12 +11,17 @@
     "./hosts": "./runtime/hosts/index.js",
     "./evaluation": "./runtime/evaluation/index.js"
   },
+  "bin": {
+    "praetor": "./bin/praetor.js"
+  },
   "scripts": {
+    "setup": "bun bin/praetor.js setup",
+    "praetor": "bun bin/praetor.js",
     "agents:audit": "bun scripts/audit-agent-runtime.js",
     "agents:conformance": "bun evaluations/architectural/conformance.js",
     "agents:evaluate": "bun scripts/evaluate-agent-runtime.js",
     "agents:enforce": "bun scripts/verify-host-enforcement.js",
-    "test": "bun scripts/audit-agent-runtime.js && bun evaluations/security/hardening.js && bun evaluations/architectural/conformance.js && bun scripts/evaluate-agent-runtime.js",
+    "test": "bun scripts/audit-agent-runtime.js && bun evaluations/security/hardening.js && bun evaluations/architectural/conformance.js && bun evaluations/hosts/setup-cli.test.js && bun scripts/evaluate-agent-runtime.js",
     "test:hardening": "bun evaluations/security/hardening.js"
   },
   "keywords": [

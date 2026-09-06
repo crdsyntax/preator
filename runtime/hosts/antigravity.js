@@ -4,7 +4,7 @@ import { BaseHostAdapter, createHostToolInvocation, HOST_DECISIONS } from './con
 import { HostDriver } from './driver.js';
 import { createSession } from '../index.js';
 import { SessionState } from '../core/state.js';
-import { loadAgentFromMarkdown } from '../core/agents.js';
+import { loadAgentFromMarkdown, AgentCatalog } from '../core/agents.js';
 
 export class AntigravityHostAdapter extends BaseHostAdapter {
   constructor({ driver = null } = {}) {
@@ -48,6 +48,55 @@ export class AntigravityHostAdapter extends BaseHostAdapter {
     });
   }
 
+  static evaluatePayload(payload, { cwd = process.cwd(), sessionFactory = null } = {}) {
+    const convId = payload.conversationId || payload.conversation_id;
+    let session = null;
+
+    const sessionsRoot = path.join(cwd, '.agent', 'sessions');
+    const statePath = convId ? path.join(sessionsRoot, convId, 'state.json') : null;
+    if (statePath && fs.existsSync(statePath)) {
+      const loadedState = SessionState.load(convId, sessionsRoot);
+
+      let agentDef = null;
+      const agentsDir = path.join(cwd, 'agents');
+      if (fs.existsSync(agentsDir)) {
+        try {
+          const catalog = new AgentCatalog();
+          catalog.loadFromDir(agentsDir);
+          agentDef = catalog.get(loadedState.agentId) || (loadedState.agentId === 'backend-engineer' ? catalog.get('backend-engineer') : null);
+        } catch {}
+      }
+      if (!agentDef) {
+        const fallbackPath = path.join(cwd, 'agents', 'backend', 'engineer.md');
+        if (fs.existsSync(fallbackPath)) {
+          try { agentDef = loadAgentFromMarkdown(fallbackPath); } catch {}
+        }
+      }
+
+      session = createSession({
+        sessionId: convId,
+        agentId: loadedState.agentId || 'backend-engineer',
+        initialPhase: loadedState.currentPhase || 'REQUEST',
+        agentDefinition: agentDef,
+        sessionsRoot
+      });
+      session.state.pendingApproval = loadedState.pendingApproval;
+      session.state.tampered = loadedState.tampered;
+    } else if (typeof sessionFactory === 'function') {
+      session = sessionFactory(payload);
+    } else {
+      session = createSession({
+        sessionId: convId || `hook-${Date.now()}`,
+        agentId: payload.agent_id || 'orchestrator',
+        sessionsRoot
+      });
+    }
+
+    const adapter = new AntigravityHostAdapter();
+    const decision = adapter.interceptToolCall(payload, session);
+    return adapter.formatResponse(decision);
+  }
+
   static async runCli(sessionFactory = null) {
     let inputData = '';
     try {
@@ -74,43 +123,9 @@ export class AntigravityHostAdapter extends BaseHostAdapter {
       }
 
       const payload = JSON.parse(inputData);
-      const convId = payload.conversationId || payload.conversation_id;
-      let session = null;
-
-      const statePath = convId ? path.join(process.cwd(), '.agent', 'sessions', convId, 'state.json') : null;
-      if (statePath && fs.existsSync(statePath)) {
-        const loadedState = SessionState.load(convId);
-
-        let agentDef = null;
-        const agentFile = path.join(process.cwd(), 'agents', 'backend', 'engineer.md');
-        if (fs.existsSync(agentFile)) {
-          try { agentDef = loadAgentFromMarkdown(agentFile); } catch {}
-        }
-
-        session = createSession({
-          sessionId: convId,
-          agentId: loadedState.agentId || 'backend-engineer',
-          initialPhase: loadedState.currentPhase || 'REQUEST',
-          agentDefinition: agentDef
-        });
-        session.state.pendingApproval = loadedState.pendingApproval;
-        session.state.tampered = loadedState.tampered;
-      } else if (typeof sessionFactory === 'function') {
-        session = sessionFactory(payload);
-      } else {
-        session = createSession({
-          sessionId: convId || `hook-${Date.now()}`,
-          agentId: payload.agent_id || 'orchestrator'
-        });
-      }
-
-      const adapter = new AntigravityHostAdapter();
-      const decision = adapter.interceptToolCall(payload, session);
-      const formatted = adapter.formatResponse(decision);
-
+      const formatted = AntigravityHostAdapter.evaluatePayload(payload, { sessionFactory });
       process.stdout.write(JSON.stringify(formatted) + '\n');
     } catch (err) {
-
       process.stdout.write(JSON.stringify({
         decision: 'deny',
         code: 'HOOK_FAIL_CLOSED',

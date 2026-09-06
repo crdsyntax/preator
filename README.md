@@ -1,9 +1,9 @@
 # Praetor
 
-> **Praetor v0.1.1 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
+> **Praetor v0.1.2 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
 > Formal 8-Phase Lifecycle FSM • Dual-Layer Security Policy • Anti-TOCTOU Argument Integrity • Cryptographic State Sealing • PowerShell De-obfuscation • Host Interceptors & MCP • 35-Scenario Benchmark Harness
 
-[![Version](https://img.shields.io/badge/version-0.1.1-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](package.json)
 [![CI Standard](https://img.shields.io/badge/CI-Zero%20Regressions-brightgreen.svg)]()
 [![Audit](https://img.shields.io/badge/Audit-30%2F30%20Passed-brightgreen.svg)]()
 [![Hardening](https://img.shields.io/badge/Hardening-HRD--01..06%20Passed-brightgreen.svg)]()
@@ -355,10 +355,75 @@ bun run agents:enforce
 
 ---
 
+## Praetor CLI & Consumer Project Setup
+
+Praetor includes a dedicated CLI enabling any consumer repository to instantly instantiate governed agent execution without hardcoded environment paths or bloated hooks.
+
+### 1. Instant Setup
+
+Run the setup command directly or point it to a target project:
+
+```bash
+# In current workspace
+praetor setup
+
+# Target consumer project
+praetor setup D:\Documents\GitHub\toketeo
+```
+
+This command automatically:
+1. Creates `.agents/` directory if missing.
+2. Installs the deliberately thin transport hook at `.agents/praetor-hook.js`.
+3. Configures `.agents/hooks.json` with the `PreToolUse` declaration.
+4. Generates a baseline `runtime.config.json` with workspace boundaries and phase rules (if not already present).
+5. Runs verification probes against the generated hook to ensure 100% fail-closed operation.
+
+### 2. Deliberately Thin Hook Architecture
+
+The hook installed in the consumer project (`.agents/praetor-hook.js`) contains **no security policies, no phase checks, and no tool execution**. Its sole purpose is transport bridging:
+
+```text
+Antigravity
+    │ (stdin: toolCall JSON)
+    ▼
+.agents/praetor-hook.js (Parse JSON, resolve runtime, catch errors)
+    │
+    ▼
+AntigravityHostAdapter -> HostDriver -> AgentSession -> ExecutionGateway -> Policy
+    │
+    ▼
+.agents/praetor-hook.js (Serialize decision JSON)
+    │ (stdout: { decision: allow | deny | ask, ... })
+    ▼
+Antigravity
+```
+
+- **Fail-Closed by Design**: Any parse error, missing dependency, empty payload, or unhandled exception immediately emits:
+  ```json
+  { "decision": "deny", "code": "HOOK_FAIL_CLOSED", "reason": "..." }
+  ```
+
+### 3. CLI Reference
+
+```bash
+# Initialize Praetor in project
+praetor setup [targetPath] [--force] [--no-config] [--no-verify]
+
+# Verify active PreToolUse hook enforcement in target project
+praetor verify [targetPath]
+
+# Direct hook runner (reads stdin, invokes Praetor Host Adapter, writes stdout)
+praetor hook
+```
+
+---
+
 ## Repository Structure
 
 ```text
 praetor/
+├── bin/                             # Praetor CLI
+│   └── praetor.js                   # Setup, verify & hook command entry point
 ├── runtime/                         # Agnostic Runtime Package
 │   ├── index.js                     # Top-level exports (AgentSession, createSession, VERSION)
 │   ├── core/                        # Agnostic Governance Kernel (Zero external imports)
@@ -382,6 +447,8 @@ praetor/
 │   │   ├── contracts.js             # Canonical hash binding & decision schemas
 │   │   ├── driver.js                # Canonical tool mapping & argument normalization
 │   │   ├── antigravity.js           # Antigravity PreToolUse hook adapter (Fail-Closed)
+│   │   ├── templates/               # Thin Hook Templates
+│   │   │   └── praetor-hook.js      # Deliberately thin fail-closed hook template
 │   │   └── mcp.js                   # Model Context Protocol (MCP) stdio adapter
 │   └── evaluation/                  # Benchmark Infrastructure
 │       ├── contracts.js             # Scenario & Scorecard schemas
