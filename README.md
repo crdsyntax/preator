@@ -10,7 +10,6 @@
 [![Architecture](https://img.shields.io/badge/Conformance-ARCH--01..10%20Passed-success.svg)]()
 [![Evaluations](https://img.shields.io/badge/Benchmarks-35%2F35%20Passed-blue.svg)]()
 [![Multi-Stack](https://img.shields.io/badge/Ecosystem-Rust%20%7C%20Next.js%20%7C%20Python%20%7C%20Go%20%7C%20SQL-orange.svg)]()
-[![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 
 ---
 
@@ -130,8 +129,8 @@ Praetor runs natively on **[Bun](https://bun.sh)** or Node.js (v18+):
 
 ```bash
 # Clone the repository
-git clone https://github.com/crdsyntax/praetor.git
-cd praetor
+git clone https://github.com/crdsyntax/preator.git
+cd preator
 
 # Install dependencies (zero external runtime dependencies)
 bun install
@@ -415,7 +414,3 @@ praetor/
 ```
 
 ---
-
-## License
-
-MIT © [Praetor Contributors](https://github.com/crdsyntax/praetor)

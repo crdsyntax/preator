@@ -30,5 +30,8 @@
     "stack-agnostic"
   ],
   "author": "Agents Framework Contributors",
-  "license": "MIT"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/crdsyntax/preator.git"
+  }
 }
