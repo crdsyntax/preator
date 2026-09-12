@@ -5,6 +5,16 @@ import { defaultTaskStore, PersistentTaskStore } from './store.js';
 
 export { defaultTaskStore, defaultTaskStore as defaultTaskRegistry, PersistentTaskStore };
 
+function hydrateSession(record, store) {
+  return createSession({
+    sessionId: record.sessionId || record.taskId,
+    goal: record.goal || '',
+    initialPhase: record.phase || 'REQUEST',
+    hydrate: true,
+    sessionsRoot: store?.sessionsDir || undefined
+  });
+}
+
 export function createTask(request = {}, store = defaultTaskStore) {
   const reqObj = typeof request === 'string' ? { goal: request } : { ...request };
   const validation = validateTaskRequest(reqObj);
@@ -21,7 +31,8 @@ export function createTask(request = {}, store = defaultTaskStore) {
     sessionId: taskId,
     goal,
     initialPhase: 'REQUEST',
-    workspaceRoot: reqObj.workspaceRoot || process.cwd()
+    workspaceRoot: reqObj.workspaceRoot || process.cwd(),
+    sessionsRoot: store?.sessionsDir || undefined
   });
 
   const taskRecord = {
@@ -66,11 +77,7 @@ export async function executeTask(taskId, options = {}, store = defaultTaskStore
   }
 
   if (!record.session) {
-    record.session = createSession({
-      sessionId: record.sessionId || record.taskId,
-      goal: record.goal || '',
-      initialPhase: record.phase || 'REQUEST'
-    });
+    record.session = hydrateSession(record, store);
   }
 
   const session = record.session;
@@ -149,11 +156,7 @@ export function approveTask(taskId, approvalId, decision = {}, store = defaultTa
   }
 
   if (!record.session) {
-    record.session = createSession({
-      sessionId: record.sessionId || record.taskId,
-      goal: record.goal || '',
-      initialPhase: record.phase || 'REQUEST'
-    });
+    record.session = hydrateSession(record, store);
   }
 
   const session = record.session;
@@ -200,11 +203,7 @@ export function cancelTask(taskId, reason = 'User cancelled', store = defaultTas
   }
 
   if (!record.session) {
-    record.session = createSession({
-      sessionId: record.sessionId || record.taskId,
-      goal: record.goal || '',
-      initialPhase: record.phase || 'REQUEST'
-    });
+    record.session = hydrateSession(record, store);
   }
 
   const session = record.session;

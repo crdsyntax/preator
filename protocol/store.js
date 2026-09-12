@@ -35,7 +35,7 @@ export class PersistentTaskStore {
       sessionId: record.sessionId || record.taskId,
       goal: record.goal || '',
       status: record.status || 'created',
-      phase: record.phase || (record.session ? record.session.getPhase() : 'REQUEST'),
+      phase: (record.session ? record.session.getPhase() : record.phase) || 'REQUEST',
       summary: record.summary || null,
       report: record.report || null,
       specialists: record.specialists || null,

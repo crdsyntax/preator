@@ -28,6 +28,7 @@ function printHelp() {
   \x1b[32mverify\x1b[0m [targetPath]   Verify host connection to Praetor execution runtime
   \x1b[32mmigrate\x1b[0m [targetPath]  Re-seal legacy (v1) session state to v2; quarantine invalid sessions
   \x1b[32mdoctor\x1b[0m [targetPath]   Check seal key, session integrity and runtime configuration
+  \x1b[32maudit\x1b[0m verify <id>   Reconstruct and verify a session's seal, event chain and trace
   \x1b[32mhook\x1b[0m [hostName]       Execute stdio interceptor for host (default: antigravity)
   \x1b[32mmcp\x1b[0m                   Execute Model Context Protocol (MCP) stdio server
   \x1b[32mversion\x1b[0m, \x1b[32m-v\x1b[0m           Print Praetor version
@@ -340,6 +341,29 @@ async function main() {
       process.exit(report.healthy ? 0 : 1);
     } catch (err) {
       console.error(`\x1b[31mDoctor error: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
+  }
+
+  if (cmd === "audit") {
+    const sub = args[1];
+    if (sub !== "verify") {
+      console.error("Usage: praetor audit verify <sessionId> [targetPath]");
+      process.exit(1);
+    }
+    const sessionId = args[2];
+    const target = args[3] && !args[3].startsWith("-") ? args[3] : process.cwd();
+    if (!sessionId) {
+      console.error("Usage: praetor audit verify <sessionId> [targetPath]");
+      process.exit(1);
+    }
+    try {
+      const { verifySession } = await import("../scripts/audit-session.js");
+      const report = verifySession(sessionId, { targetDir: target });
+      console.log(JSON.stringify(report, null, 2));
+      process.exit(report.valid ? 0 : 1);
+    } catch (err) {
+      console.error(`\x1b[31mAudit error: ${err.message}\x1b[0m`);
       process.exit(1);
     }
   }

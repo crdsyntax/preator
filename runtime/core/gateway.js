@@ -221,7 +221,7 @@ export class ExecutionGateway {
     }
 
     try {
-      const output = await this._executeWithTimeout(toolDef.executor, args, context, toolDef.timeoutMs);
+      const output = await this._executeWithTimeout(toolDef.executor, args, context, toolDef.timeoutMs, context.signal);
       const durationMs = Date.now() - startMs;
 
       if (this.events) {
@@ -243,10 +243,12 @@ export class ExecutionGateway {
     } catch (err) {
       const durationMs = Date.now() - startMs;
       const isTimeout = err.code === 'TIMEOUT' || err.message?.includes('timed out');
+      const isCancelled = err.code === 'CANCELLED';
+      const errorCode = isTimeout ? 'TIMEOUT' : (isCancelled ? 'CANCELLED' : 'EXECUTION_FAILED');
       const category = isTimeout ? ERROR_CATEGORIES.TIMEOUT : ERROR_CATEGORIES.EXECUTION_FAILED;
 
       const toolError = createToolError({
-        code: isTimeout ? 'TIMEOUT' : 'EXECUTION_FAILED',
+        code: errorCode,
         message: err.message,
         category,
         details: { durationMs, originalError: String(err) }
@@ -284,23 +286,63 @@ export class ExecutionGateway {
     }
   }
 
-  async _executeWithTimeout(executorFn, args, context, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        const err = new Error(`Tool execution timed out after ${timeoutMs}ms`);
-        err.code = 'TIMEOUT';
-        reject(err);
-      }, timeoutMs);
+  async _executeWithTimeout(executorFn, args, context = {}, timeoutMs, signal = null) {
+    const timeout = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 30000;
+    const controller = new AbortController();
+    const externalAbort = () => controller.abort(signal?.reason);
+    if (signal) {
+      if (signal.aborted) controller.abort(signal.reason);
+      else signal.addEventListener('abort', externalAbort, { once: true });
+    }
 
-      Promise.resolve(executorFn(args, context))
-        .then(res => {
-          clearTimeout(timer);
-          resolve(res);
-        })
-        .catch(err => {
-          clearTimeout(timer);
+    try {
+      return await new Promise((resolve, reject) => {
+        let settled = false;
+
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          controller.abort(new Error('timeout'));
+          const err = new Error(`Tool execution timed out after ${timeout}ms`);
+          err.code = 'TIMEOUT';
           reject(err);
-        });
-    });
+        }, timeout);
+
+        const onAbort = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          const reason = controller.signal.reason;
+          const err = new Error(`Tool execution cancelled${reason ? `: ${reason}` : ''}`);
+          err.code = 'CANCELLED';
+          reject(err);
+        };
+        controller.signal.addEventListener('abort', onAbort, { once: true });
+
+        if (controller.signal.aborted) {
+          onAbort();
+          return;
+        }
+
+        Promise.resolve()
+          .then(() => executorFn(args, { ...context, signal: controller.signal }))
+          .then(res => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            controller.signal.removeEventListener('abort', onAbort);
+            resolve(res);
+          })
+          .catch(err => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            controller.signal.removeEventListener('abort', onAbort);
+            reject(err);
+          });
+      });
+    } finally {
+      if (signal) signal.removeEventListener('abort', externalAbort);
+    }
   }
 }

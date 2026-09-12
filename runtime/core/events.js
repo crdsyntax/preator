@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { EventEmitter } from "node:events";
 import { GENESIS_HASH, eventHash, resolveStateKey } from "./sealing.js";
+import { withLock } from "./locks.js";
 
 export class EventLog extends EventEmitter {
   constructor({ sessionId, logDir = null, key = undefined, loadExisting = false } = {}) {
@@ -39,30 +40,53 @@ export class EventLog extends EventEmitter {
   }
 
   append(type, payload = {}) {
-    const base = {
-      event_id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      session_id: this.sessionId,
-      event_type: type,
-      timestamp: new Date().toISOString(),
-      ...payload,
-      seq: this.seq,
-      prev_hash: this.lastHash
-    };
+    const lockPath = path.join(this.logDir, '.events.lock');
+    return withLock(lockPath, () => {
+      this._resyncFromDisk();
 
-    const event = { ...base, event_hash: eventHash(base, this.lastHash, { key: this.key }) };
-    this.seq++;
-    this.lastHash = event.event_hash;
-    this.events.push(event);
+      const base = {
+        event_id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        session_id: this.sessionId,
+        event_type: type,
+        timestamp: new Date().toISOString(),
+        ...payload,
+        seq: this.seq,
+        prev_hash: this.lastHash
+      };
 
+      const event = { ...base, event_hash: eventHash(base, this.lastHash, { key: this.key }) };
+      this.seq++;
+      this.lastHash = event.event_hash;
+      this.events.push(event);
+
+      try {
+        fs.appendFileSync(this.logFile, JSON.stringify(event) + '\n', 'utf8');
+      } catch (err) {
+        console.error(`[EventLog] Failed to persist event: ${err.message}`);
+      }
+
+      this.emit(type, event);
+      this.emit('*', event);
+      return event;
+    });
+  }
+
+  _resyncFromDisk() {
+    if (!fs.existsSync(this.logFile)) return;
     try {
-      fs.appendFileSync(this.logFile, JSON.stringify(event) + '\n', 'utf8');
-    } catch (err) {
-      console.error(`[EventLog] Failed to persist event: ${err.message}`);
+      const content = fs.readFileSync(this.logFile, 'utf8').trimEnd();
+      if (!content) return;
+      const lastLine = content.slice(content.lastIndexOf('\n') + 1);
+      const last = JSON.parse(lastLine);
+      if (last && typeof last.event_hash === 'string' && Number.isInteger(last.seq)) {
+        if (last.event_hash !== this.lastHash) {
+          this.lastHash = last.event_hash;
+          this.seq = last.seq + 1;
+        }
+      }
+    } catch {
+      // Ignore; next append hashes from the in-memory tail.
     }
-
-    this.emit(type, event);
-    this.emit('*', event);
-    return event;
   }
 
   list() {

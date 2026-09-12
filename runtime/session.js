@@ -121,6 +121,7 @@ export class AgentSession {
     }
     this.policy = policy || new PolicyEngine({ projectConfig });
     this.registry = new ToolRegistry();
+    this.abortController = new AbortController();
     this.gateway = new ExecutionGateway({
       registry: this.registry,
       lifecycle: this.lifecycle,
@@ -263,6 +264,16 @@ export class AgentSession {
     return this.lifecycle.getPhase();
   }
 
+  get signal() {
+    return this.abortController.signal;
+  }
+
+  abort(reason = 'CANCELLED') {
+    if (!this.abortController.signal.aborted) {
+      this.abortController.abort(reason);
+    }
+  }
+
   transition(targetPhase) {
     try {
       const result = this.lifecycle.transition(targetPhase);
@@ -285,6 +296,27 @@ export class AgentSession {
       });
       throw err;
     }
+  }
+
+  newRun({ reason = '', actor = 'orchestrator' } = {}) {
+    const result = this.lifecycle.resetToRequest({ reason, actor });
+
+    this.state.currentPhase = 'REQUEST';
+    this.state.status = 'running';
+    this.state.iteration = 0;
+    this.state.pendingApproval = null;
+    this.state.save();
+
+    this.events.append('lifecycle.reset', {
+      phase: 'REQUEST',
+      tool_name: 'lifecycle',
+      status: 'ok',
+      reason: result.reason,
+      actor: result.actor,
+      previous_phase: result.previous
+    });
+
+    return result;
   }
 
   canExecute(toolName, args = {}) {
@@ -310,7 +342,11 @@ export class AgentSession {
       phase: this.lifecycle.getPhase()
     });
 
-    const enrichedContext = { ...context, agentDefinition: this.agentDefinition };
+    const enrichedContext = {
+      ...context,
+      agentDefinition: this.agentDefinition,
+      signal: context.signal || this.abortController.signal
+    };
     const result = await this.gateway.execute(toolRequest, this.state.toJSON(), enrichedContext);
     if (result.status !== TOOL_STATUS.OK) {
       const err = new Error(result.error?.message || `Tool execution ${result.status}`);

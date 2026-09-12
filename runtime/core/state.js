@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { validateTraceSequence } from "./lifecycle.js";
+import { withLock } from "./locks.js";
 import {
   SEAL_VERSION,
   SEAL_ALGOS,
@@ -124,8 +125,13 @@ export class SessionState {
 
   save() {
     this.ensureDirectory();
-    fs.writeFileSync(this.filePath, JSON.stringify(this.toJSON(), null, 2), 'utf8');
-    return this.filePath;
+    const lockPath = path.join(this.sessionDir, '.state.lock');
+    return withLock(lockPath, () => {
+      const tempPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
+      fs.writeFileSync(tempPath, JSON.stringify(this.toJSON(), null, 2), 'utf8');
+      fs.renameSync(tempPath, this.filePath);
+      return this.filePath;
+    });
   }
 
   static load(sessionId, sessionsRoot = DEFAULT_SESSIONS_ROOT, { key = undefined, keyPath = null, strictSeal = false } = {}) {

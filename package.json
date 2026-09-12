@@ -1,6 +1,6 @@
 {
   "name": "praetor",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Praetor: Universal Governed Agent Runtime Framework",
   "type": "module",
   "main": "runtime/index.js",
@@ -21,7 +21,7 @@
     "agents:conformance": "bun evaluations/architectural/conformance.js",
     "agents:evaluate": "bun scripts/evaluate-agent-runtime.js",
     "agents:enforce": "bun scripts/verify-host-enforcement.js",
-    "test": "bun scripts/audit-agent-runtime.js && bun evaluations/security/sealing.js && bun evaluations/security/hardening.js && bun evaluations/architectural/conformance.js && bun evaluations/hosts/setup-cli.test.js && bun evaluations/delegation/e2e-delegation.test.js && bun evaluations/delegation/autonomous-execution.test.js && bun evaluations/delegation/revocation.test.js && bun evaluations/migration/migrate.test.js && bun scripts/evaluate-agent-runtime.js",
+    "test": "bun scripts/audit-agent-runtime.js && bun evaluations/security/sealing.js && bun evaluations/security/concurrency.test.js && bun evaluations/security/hardening.js && bun evaluations/architectural/conformance.js && bun evaluations/hosts/setup-cli.test.js && bun evaluations/delegation/e2e-delegation.test.js && bun evaluations/delegation/autonomous-execution.test.js && bun evaluations/delegation/revocation.test.js && bun evaluations/lifecycle/resume.test.js && bun evaluations/lifecycle/cancellation.test.js && bun evaluations/lifecycle/fsm-reset.test.js && bun evaluations/lifecycle/audit-verify.test.js && bun evaluations/migration/migrate.test.js && bun scripts/evaluate-agent-runtime.js",
     "test:hardening": "bun evaluations/security/hardening.js"
   },
   "keywords": [

@@ -41,6 +41,25 @@ export class LifecycleMachine {
   isWriteTool(toolName) {
     return WRITE_TOOLS.has(toolName);
   }
+
+  resetToRequest({ reason = '', actor = null } = {}) {
+    if (this.currentPhase !== 'COMPLETE') {
+      const error = new Error(
+        `Lifecycle reset denied: session must be COMPLETE to start a new run (current: ${this.currentPhase}).`
+      );
+      error.code = 'FSM_RESET_NOT_ALLOWED';
+      error.currentPhase = this.currentPhase;
+      throw error;
+    }
+    if (typeof reason !== 'string' || reason.trim() === '') {
+      const error = new Error('Lifecycle reset requires an explicit non-empty reason.');
+      error.code = 'FSM_RESET_REASON_REQUIRED';
+      throw error;
+    }
+    const previous = this.currentPhase;
+    this.currentPhase = 'REQUEST';
+    return { previous, current: 'REQUEST', reason: reason.trim(), actor: actor || 'unknown' };
+  }
 }
 
 export function validateTraceSequence(events = []) {
@@ -48,6 +67,11 @@ export function validateTraceSequence(events = []) {
   for (const evt of events) {
     const evtType = evt.event_type || evt.type;
     const phaseField = evt.data?.to || evt.data?.targetPhase || evt.data?.phase || evt.to || evt.to_phase || evt.phase;
+
+    if (evtType === 'lifecycle.reset') {
+      simulatedPhase = phaseField || 'REQUEST';
+      continue;
+    }
 
     if (evtType !== 'lifecycle.phase_changed') {
       if (simulatedPhase === null && phaseField) simulatedPhase = phaseField;

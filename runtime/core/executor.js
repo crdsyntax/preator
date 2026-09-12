@@ -267,13 +267,47 @@ export class TaskExecutor {
 
     const goal = session.state?.goal || options.goal || '';
     const delegations = [];
+    const taskTimeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : null;
+    let timeoutHandle = null;
 
     try {
+      if (session.state?.tampered || session.state?.status === 'tampered') {
+        return {
+          taskId: session.sessionId,
+          sessionId: session.sessionId,
+          phase: session.getPhase(),
+          goal,
+          status: 'failed',
+          error: 'STATE_TAMPERED: session state failed integrity verification; run aborted before any transition.',
+          audit_seal: session.state?.state_hash || null,
+          events_count: session.events?.events?.length || 0,
+          delegations
+        };
+      }
+
+      if (session.state?.status === 'cancelled') {
+        return {
+          taskId: session.sessionId,
+          sessionId: session.sessionId,
+          phase: session.getPhase(),
+          goal,
+          status: 'failed',
+          error: 'SESSION_CANCELLED: cancelled sessions cannot be resumed.',
+          audit_seal: session.state?.state_hash || null,
+          events_count: session.events?.events?.length || 0,
+          delegations
+        };
+      }
+
+      if (taskTimeoutMs) {
+        timeoutHandle = setTimeout(() => session.abort('TASK_TIMEOUT'), taskTimeoutMs);
+      }
+
       if (session.lifecycle.getPhase() === 'REQUEST') {
         session.transition('ANALYZE');
       }
 
-      if (session.retrieval && typeof session.retrieveContext === 'function') {
+      if (session.lifecycle.getPhase() === 'ANALYZE' && session.retrieval && typeof session.retrieveContext === 'function') {
         try {
           await session.retrieveContext({ query: goal });
         } catch {}
@@ -284,10 +318,16 @@ export class TaskExecutor {
       }
 
       const specialists = inferSpecialists(goal, session, options);
-      const shouldDelegate = options.delegate !== false && session.orchestration;
+      const shouldDelegate = options.delegate !== false && session.orchestration && session.lifecycle.getPhase() === 'PLAN';
 
       if (shouldDelegate) {
         for (const specialistId of specialists) {
+          if (session.signal?.aborted) {
+            const err = new Error('TASK_TIMEOUT: task aborted before delegation completed');
+            err.code = 'CANCELLED';
+            throw err;
+          }
+
           if (!session.orchestration.hasAgent(specialistId)) {
             const agentDef = session.agentCatalog?.get(specialistId);
             if (agentDef) {
@@ -330,6 +370,12 @@ export class TaskExecutor {
 
           delegations.push(delegationResult);
         }
+      }
+
+      if (session.signal?.aborted) {
+        const err = new Error('TASK_TIMEOUT: task aborted before completion');
+        err.code = 'CANCELLED';
+        throw err;
       }
 
       if (session.lifecycle.getPhase() === 'PLAN') {
@@ -420,17 +466,20 @@ export class TaskExecutor {
         delegations
       };
     } catch (err) {
+      const cancelled = err.code === 'CANCELLED' || /CANCELLED|TASK_TIMEOUT/.test(String(err.message)) || session.signal?.aborted === true;
       return {
         taskId: session.sessionId,
         sessionId: session.sessionId,
         phase: session.getPhase(),
         goal,
-        status: 'failed',
+        status: cancelled ? 'cancelled' : 'failed',
         error: err.message,
         audit_seal: session.state?.state_hash || null,
         events_count: session.events?.events?.length || 0,
         delegations
       };
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 }

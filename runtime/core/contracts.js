@@ -30,7 +30,7 @@ export const TRANSITION_GRAPH = Object.freeze({
   EXECUTE: Object.freeze(new Set(['VERIFY'])),
   VERIFY: Object.freeze(new Set(['DOCUMENT', 'ANALYZE'])),
   DOCUMENT: Object.freeze(new Set(['COMPLETE'])),
-  COMPLETE: Object.freeze(new Set(['REQUEST']))
+  COMPLETE: Object.freeze(new Set([]))
 });
 
 export const RISK_LEVELS = Object.freeze({

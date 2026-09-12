@@ -2,6 +2,26 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-12
+
+Reliability release: cross-process locking, first-class resume, real cancellation, audited FSM reset and session audit tooling. Backward compatible with 0.3.0 sessions.
+
+### Added
+- `runtime/core/locks.js`: stale-aware lockfiles; `state.json` writes are atomic (temp + rename) under lock.
+- First-class resume: `executeTask`/`resumeTask`/`approveTask`/`cancelTask` rehydrate sessions from disk; `TaskExecutor` is resume-safe (no duplicate delegation or transitions).
+- Real cancellation: per-session `AbortController`, `session.abort(reason)`, tool-level timeout and global task timeout, terminal `cancelled` status.
+- `session.newRun({ reason, actor })` and `praetor audit verify <sessionId>` (reconstructs seal + event chain + FSM trace).
+- Regression suites: CON-01..03, RES-01..03, CAN-01..03, RST-01..03, AUD-01..03 (wired into `bun run test`).
+
+### Changed
+- `events.jsonl` appends resynchronize `seq`/`prev_hash` under lock, keeping the chain linear across processes.
+- FSM: `COMPLETE` no longer silently transitions to `REQUEST`; use audited `newRun`.
+- `PersistentTaskStore` derives persisted phase from the live session.
+
+### Fixed
+- `EventLog` ignored the session root (events now live beside `state.json`).
+- Task store could persist a stale phase after in-memory transitions.
+
 ## [0.3.0] - 2026-09-12
 
 Security-hardening release: state sealing with a real key, tamper-evident event chain, action-bound human approvals, path/symlink hardening, and migration tooling. **Breaking for pre-existing sessions** unless migrated.
