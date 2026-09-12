@@ -87,12 +87,43 @@ export function createHostDecision({
 }
 
 export class BaseHostAdapter {
-  constructor(name = 'base-host') {
+  constructor(name = 'base-host', description = 'Generic Host Adapter') {
     this.name = name;
+    this.description = description;
+  }
+
+  detect(targetDir) {
+    return false;
+  }
+
+  setup(targetDir, options = {}) {
+    throw new Error(`setup() is not implemented for HostAdapter '${this.name}'`);
+  }
+
+  verify(targetDir) {
+    throw new Error(`verify() is not implemented for HostAdapter '${this.name}'`);
+  }
+
+  translateEvent(hostEvent) {
+    if (!hostEvent) {
+      throw new Error(`translateEvent requires a hostEvent in HostAdapter '${this.name}'`);
+    }
+    return createHostToolInvocation({
+      host: this.name,
+      toolName: hostEvent.tool_name || hostEvent.tool || hostEvent.name,
+      args: hostEvent.args || hostEvent.arguments || {},
+      agentId: hostEvent.agent_id || hostEvent.agentId || 'orchestrator',
+      stepIdx: hostEvent.step_idx || hostEvent.stepIdx || 0,
+      conversationId: hostEvent.conversation_id || hostEvent.conversationId || '',
+      metadata: hostEvent.metadata || {}
+    });
   }
 
   interceptToolCall(hostInvocation, session) {
-    throw new Error(`interceptToolCall() must be implemented by HostAdapter '${this.name}'`);
+    if (this.driver && typeof this.driver.evaluateInvocation === 'function') {
+      return this.driver.evaluateInvocation(hostInvocation, session);
+    }
+    return createHostDecision({ decision: HOST_DECISIONS.ALLOW, reason: 'Tool allowed by default host adapter' });
   }
 
   formatResponse(hostDecision) {

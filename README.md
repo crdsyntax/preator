@@ -1,9 +1,9 @@
 # Praetor
 
-> **Praetor v0.1.2 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
+> **Praetor v0.2.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
 > Formal 8-Phase Lifecycle FSM • Dual-Layer Security Policy • Anti-TOCTOU Argument Integrity • Cryptographic State Sealing • PowerShell De-obfuscation • Host Interceptors & MCP • 35-Scenario Benchmark Harness
 
-[![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](package.json)
 [![CI Standard](https://img.shields.io/badge/CI-Zero%20Regressions-brightgreen.svg)]()
 [![Audit](https://img.shields.io/badge/Audit-30%2F30%20Passed-brightgreen.svg)]()
 [![Hardening](https://img.shields.io/badge/Hardening-HRD--01..06%20Passed-brightgreen.svg)]()
@@ -15,11 +15,70 @@
 
 ## Overview: The Praetor Paradigm
 
-In the Roman Republic, the **Praetor** was the magistrate entrusted with administering justice, interpreting legal bounds, and commanding state authority. 
+**Praetor is a governed execution runtime for AI agent tasks, providing lifecycle, policy, delegation, context, approvals, and controlled execution independently of the host or model provider.**
 
-In autonomous AI systems, **Praetor** serves the exact same role. Modern agent frameworks commonly suffer from a critical vulnerability: they grant models or host environments direct, unconstrained access to execution tools. LLMs hallucinate destructive bash commands, agents skip architectural planning to arbitrarily mutate code, and host hooks lack cryptographic verification.
+In modern AI workflows, hosts (such as OpenCode, Claude Code, OpenAI Codex, or Google Antigravity) orchestrate interactions, maintain developer sessions, and propose tasks. However, granting models or host environments direct, unconstrained access to execution environments creates systemic risk: LLMs hallucinate destructive commands, agents skip architectural planning to mutate code directly, and task execution lacks formal boundaries.
 
-**Praetor guarantees that models and external hosts never possess unilateral execution authority.** Every action, tool invocation, lifecycle transition, and subagent delegation must pass through deterministic, fail-closed governance gates.
+**Praetor decouples task execution from host control:**
+- **OpenCode remains OpenCode.**
+- **Claude Code remains Claude Code.**
+- **Codex remains Codex.**
+- **Antigravity remains Antigravity.**
+- **Their tools remain their tools.**
+
+Praetor provides the **governed execution runtime** for the agent's tasks:
+
+```text
+                  Agent / Host
+       (OpenCode, Claude, Codex, Antigravity)
+                        │
+                  proposes task
+                        │
+                        ▼
+                   ┌─────────┐
+                   │ Praetor │
+                   │ Runtime │
+                   └────┬────┘
+                        │
+          ┌─────────────┼─────────────┐
+          │             │             │
+       Analyze         Plan        Execute
+          │             │             │
+          └─────────────┼─────────────┘
+                        ▼
+                   tools / OS
+                        │
+                        ▼
+                governed execution
+                        │
+                        ▼
+                   Agent / Host
+```
+
+Host adapters exist because each host has its own native mechanism to connect to the runtime, not because Praetor seeks to micromanage or replace host tools. The adapter's sole responsibility is:
+$$\text{Host Task / Event} \longrightarrow \text{Praetor Host Contract} \longrightarrow \text{Governed Runtime} \longrightarrow \text{Host Native Result}$$
+
+---
+
+### Runtime Responsibilities Boundary
+
+| Responsibility | Praetor |
+| :--- | :---: |
+| Receive an agent task | **Yes** |
+| Maintain lifecycle FSM | **Yes** |
+| Enforce governance policies | **Yes** |
+| Manage context boundaries | **Yes** |
+| Manage approvals | **Yes** |
+| Delegate to subagents | **Yes** |
+| Control execution gates | **Yes** |
+| Record audit traceability | **Yes** |
+| Verify results | **Yes** |
+| Evaluate agent behavior | **Yes** |
+| Provide API/CLI for agent hosts | **Yes** |
+| Be OpenCode | **No** |
+| Be Claude / Codex | **No** |
+| Replace the LLM / model | **No** |
+| Micromanage native host tools | **No** |
 
 ---
 
@@ -51,7 +110,7 @@ External Host (UNTRUSTED / HOSTILE ENVIRONMENT)
 │    • Disguised inline file writes blocked in non-write phases           │
 │    • Host hook crash/timeout unconditionally denies (HOOK_FAIL_CLOSED)  │
 │                                                                        │
-│  [ARCH-01..07] Core Governance Kernel                                  │
+│  [ARCH-01..10] Core Governance Kernel                                  │
 │    • 8-Phase Lifecycle FSM (Write gate strictly in EXECUTE/DOCUMENT)   │
 │    • Dual-Layer Policy Engine (Hard Invariants + Project Config)       │
 │    • Delegation Tree Hierarchy (Root -> Specialists only, max depth 3) │
@@ -106,9 +165,9 @@ External hosts (IDEs, CI, shells) are treated as untrusted:
 
 ---
 
-## The 7 Gates of ExecutionGateway
+## The 8 Gates of ExecutionGateway
 
-Every tool call processed by Praetor must clear seven consecutive gates:
+Every tool call processed by Praetor must clear eight consecutive gates:
 
 1. **Tool Contract Gate:** Validates request structure, unique `request_id`, valid phase, and declared risk level.
 2. **Registry Lookup Gate:** Verifies tool exists in the active catalog.
@@ -355,50 +414,56 @@ bun run agents:enforce
 
 ---
 
-## Praetor CLI & Consumer Project Setup
+## Praetor Multi-Host CLI & Setup
 
-Praetor includes a dedicated CLI enabling any consumer repository to instantly instantiate governed agent execution without hardcoded environment paths or bloated hooks.
+Praetor is host-agnostic: it governs agents regardless of the host environment (Antigravity, MCP, OpenCode, Claude Code, etc.). The CLI configures the appropriate host adapter and dedicated bridge.
 
-### 1. Instant Setup
-
-Run the setup command directly or point it to a target project:
+### 1. Host-Specific Setup
 
 ```bash
-# In current workspace
-praetor setup
+# Setup Antigravity host governance (default)
+praetor setup --host antigravity [targetPath]
 
-# Target consumer project
-praetor setup D:\Documents\GitHub\toketeo
+# Setup Model Context Protocol (MCP) host governance
+praetor setup --host mcp [targetPath]
 ```
 
-This command automatically:
+When targeting **Antigravity**:
 1. Creates `.agents/` directory if missing.
-2. Installs the deliberately thin transport hook at `.agents/praetor-hook.js`.
+2. Installs the thin Antigravity bridge at `.agents/praetor-hook.js`.
 3. Configures `.agents/hooks.json` with the `PreToolUse` declaration.
-4. Generates a baseline `runtime.config.json` with workspace boundaries and phase rules (if not already present).
-5. Runs verification probes against the generated hook to ensure 100% fail-closed operation.
+4. Generates a baseline `runtime.config.json` (if not already present).
+5. Runs automated verification probes.
 
-### 2. Deliberately Thin Hook Architecture
+When targeting **MCP**:
+1. Configures `mcp.json` with the `praetor mcp` server entry.
+2. Generates baseline `runtime.config.json` (if not already present).
 
-The hook installed in the consumer project (`.agents/praetor-hook.js`) contains **no security policies, no phase checks, and no tool execution**. Its sole purpose is transport bridging:
+### 2. Decoupled Architecture
 
 ```text
-Antigravity
-    │ (stdin: toolCall JSON)
-    ▼
-.agents/praetor-hook.js (Parse JSON, resolve runtime, catch errors)
-    │
-    ▼
-AntigravityHostAdapter -> HostDriver -> AgentSession -> ExecutionGateway -> Policy
-    │
-    ▼
-.agents/praetor-hook.js (Serialize decision JSON)
-    │ (stdout: { decision: allow | deny | ask, ... })
-    ▼
-Antigravity
+               ┌──────────────┐
+               │  Antigravity │
+               └──────┬───────┘
+                      │ (PreToolUse)
+               antigravity.js
+                      │
+                      ▼
+┌─────────┐    ┌──────────────┐    ┌──────────┐
+│ OpenCode│───►│  HostDriver  │◄───│  Claude  │
+└─────────┘    └──────┬───────┘    └──────────┘
+ (opencode.js)        │             (claude.js)
+                      ▼
+                 AgentSession
+                      ▼
+               ExecutionGateway
+                      ▼
+           Dual-Layer Policy + FSM
 ```
 
-- **Fail-Closed by Design**: Any parse error, missing dependency, empty payload, or unhandled exception immediately emits:
+The hook installed in the consumer project (`.agents/praetor-hook.js`) contains **zero security policies, zero phase checks, and zero tool execution**. Its sole purpose is protocol translation into Praetor's canonical `HostToolInvocation`.
+
+- **Fail-Closed by Design**: Any unhandled error, invalid stdin JSON, or empty payload immediately outputs:
   ```json
   { "decision": "deny", "code": "HOOK_FAIL_CLOSED", "reason": "..." }
   ```
@@ -406,14 +471,17 @@ Antigravity
 ### 3. CLI Reference
 
 ```bash
-# Initialize Praetor in project
-praetor setup [targetPath] [--force] [--no-config] [--no-verify]
+# Setup Praetor for a specific host
+praetor setup [--host antigravity|mcp|opencode|claude|codex] [targetPath]
 
-# Verify active PreToolUse hook enforcement in target project
+# Verify active PreToolUse hook enforcement
 praetor verify [targetPath]
 
-# Direct hook runner (reads stdin, invokes Praetor Host Adapter, writes stdout)
+# Antigravity direct hook runner (reads stdin, invokes AntigravityHostAdapter, writes stdout)
 praetor hook
+
+# MCP direct stdio server
+praetor mcp
 ```
 
 ---
@@ -423,7 +491,7 @@ praetor hook
 ```text
 praetor/
 ├── bin/                             # Praetor CLI
-│   └── praetor.js                   # Setup, verify & hook command entry point
+│   └── praetor.js                   # Setup, verify, hook & mcp commands
 ├── runtime/                         # Agnostic Runtime Package
 │   ├── index.js                     # Top-level exports (AgentSession, createSession, VERSION)
 │   ├── core/                        # Agnostic Governance Kernel (Zero external imports)
@@ -433,7 +501,7 @@ praetor/
 │   │   ├── approvals.js             # Human-in-the-loop approval manager
 │   │   ├── registry.js              # Tool catalog & schema validator
 │   │   ├── policy.js                # Dual-layer policy & shell de-obfuscation
-│   │   ├── gateway.js               # 7-Gate central execution gateway (Anti-TOCTOU)
+│   │   ├── gateway.js               # 8-Gate central execution gateway (Anti-TOCTOU)
 │   │   ├── delegation.js            # Task ownership contracts
 │   │   ├── orchestration.js         # Tree delegation coordinator
 │   │   ├── agents.js                # Agent profile loader & catalog
@@ -448,7 +516,7 @@ praetor/
 │   │   ├── driver.js                # Canonical tool mapping & argument normalization
 │   │   ├── antigravity.js           # Antigravity PreToolUse hook adapter (Fail-Closed)
 │   │   ├── templates/               # Thin Hook Templates
-│   │   │   └── praetor-hook.js      # Deliberately thin fail-closed hook template
+│   │   │   └── antigravity-hook.js  # Dedicated Antigravity fail-closed hook template
 │   │   └── mcp.js                   # Model Context Protocol (MCP) stdio adapter
 │   └── evaluation/                  # Benchmark Infrastructure
 │       ├── contracts.js             # Scenario & Scorecard schemas

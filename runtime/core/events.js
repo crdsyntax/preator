@@ -48,10 +48,16 @@ export class EventLog extends EventEmitter {
   static readLogFile(filePath) {
     if (!fs.existsSync(filePath)) return [];
     const content = fs.readFileSync(filePath, 'utf8');
-    return content
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean)
-      .map(line => JSON.parse(line));
+    const events = [];
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      try {
+        events.push(JSON.parse(trimmed));
+      } catch {
+        console.warn(`[EventLog] Skipping malformed event line in ${filePath}`);
+      }
+    }
+    return events;
   }
 }

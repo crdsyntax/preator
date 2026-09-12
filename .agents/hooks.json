@@ -1,11 +1,15 @@
 ﻿{
-  "$schema": "https://raw.githubusercontent.com/google/antigravity/main/schemas/hooks.schema.json",
-  "version": "1.0",
-  "hooks": {
+  "praetor-governance": {
     "PreToolUse": [
       {
-        "matcher": ".*",
-        "command": "bun run runtime/hosts/antigravity.js"
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if exist praetor-hook.js (bun praetor-hook.js) else (bun .agents/praetor-hook.js)",
+            "timeout": 10
+          }
+        ]
       }
     ]
   }

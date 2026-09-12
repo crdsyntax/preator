@@ -3,11 +3,17 @@ import os from "node:os";
 import fs from "node:fs";
 
 import { createSession, VERSION } from '../index.js';
-import { loadAgentFromMarkdown } from '../core/agents.js';
+import { AgentCatalog } from '../core/agents.js';
 import { createEvaluationResult, EVALUATION_STATUS } from './contracts.js';
 import * as assertions from './assertions.js';
 import { Scorecard } from './scorecard.js';
 import { RegressionTracker } from './regression.js';
+
+const AGENT_ID_ALIASES = Object.freeze({
+  'qa-engineer': 'qa-tester',
+  'code-review': 'code-reviewer',
+  'reviewer': 'code-reviewer'
+});
 
 export class EvaluationRunner {
   constructor({
@@ -30,39 +36,23 @@ export class EvaluationRunner {
   }
 
   getAgentDefinition(agentId) {
-    if (this.loadedAgents.has(agentId)) {
-      return this.loadedAgents.get(agentId);
+    const canonicalId = AGENT_ID_ALIASES[agentId] || agentId;
+    if (this.loadedAgents.has(canonicalId)) {
+      return this.loadedAgents.get(canonicalId);
     }
 
-    let filePath;
-    if (agentId === 'orchestrator') {
-      filePath = path.join(this.agentsDir, 'orchestrator.md');
-    } else if (agentId === 'backend-engineer') {
-      filePath = path.join(this.agentsDir, 'backend', 'engineer.md');
-    } else if (agentId === 'frontend-engineer') {
-      filePath = path.join(this.agentsDir, 'frontend', 'engineer.md');
-    } else if (agentId === 'database-engineer') {
-      filePath = path.join(this.agentsDir, 'database', 'engineer.md');
-    } else if (agentId === 'qa-engineer' || agentId === 'qa-tester') {
-      filePath = path.join(this.agentsDir, 'qa', 'tester.md');
-    } else if (agentId === 'code-reviewer') {
-      filePath = path.join(this.agentsDir, 'reviews', 'review.md');
-    } else if (agentId === 'security-devops') {
-      filePath = path.join(this.agentsDir, 'security', 'devops.md');
-    } else if (agentId === 'core-engineering') {
-      filePath = path.join(this.agentsDir, 'core', 'engineering.md');
-    } else if (agentId === 'core-security') {
-      filePath = path.join(this.agentsDir, 'core', 'security.md');
-    } else {
-      filePath = path.join(this.agentsDir, `${agentId}.md`);
+    if (!this.agentCatalog) {
+      this.agentCatalog = new AgentCatalog();
+      if (fs.existsSync(this.agentsDir)) {
+        this.agentCatalog.loadFromDir(this.agentsDir);
+      }
     }
 
-    if (fs.existsSync(filePath)) {
-      const def = loadAgentFromMarkdown(filePath);
-      this.loadedAgents.set(agentId, def);
-      return def;
+    const def = this.agentCatalog.get(canonicalId);
+    if (def) {
+      this.loadedAgents.set(canonicalId, def);
     }
-    return null;
+    return def;
   }
 
   async runScenario(scenario) {

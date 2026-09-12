@@ -89,6 +89,35 @@ export class PolicyEngine {
       return { valid: false, error: "'workspace' section in config must be a non-array object", config: null };
     }
 
+    if (cfg.policy) {
+      if (cfg.policy.denied_tools !== undefined && !Array.isArray(cfg.policy.denied_tools)) {
+        return { valid: false, error: "'policy.denied_tools' must be an array", config: null };
+      }
+      if (cfg.policy.phase_rules !== undefined) {
+        const rules = cfg.policy.phase_rules;
+        if (typeof rules !== 'object' || rules === null || Array.isArray(rules)) {
+          return { valid: false, error: "'policy.phase_rules' must be an object", config: null };
+        }
+        for (const [phase, rule] of Object.entries(rules)) {
+          if (rule === null || typeof rule !== 'object' || Array.isArray(rule) || !Array.isArray(rule.allowed_tools)) {
+            return { valid: false, error: `'policy.phase_rules.${phase}.allowed_tools' must be an array`, config: null };
+          }
+        }
+      }
+    }
+
+    if (cfg.workspace && cfg.workspace.boundaries !== undefined) {
+      const boundaries = cfg.workspace.boundaries;
+      if (boundaries === null || typeof boundaries !== 'object' || Array.isArray(boundaries)) {
+        return { valid: false, error: "'workspace.boundaries' must be an object", config: null };
+      }
+      for (const key of ['allowed', 'denied']) {
+        if (boundaries[key] !== undefined && !Array.isArray(boundaries[key])) {
+          return { valid: false, error: `'workspace.boundaries.${key}' must be an array`, config: null };
+        }
+      }
+    }
+
     return { valid: true, error: null, config: cfg };
   }
 
@@ -97,7 +126,8 @@ export class PolicyEngine {
     const toolName = request.tool || request.tool_name;
     const args = request.args || request.arguments || {};
 
-    if (state.status === 'completed' || state.status === 'failed') {
+    const terminalStatuses = ['completed', 'failed', 'cancelled', 'tampered'];
+    if (terminalStatuses.includes(state.status)) {
       return {
         allowed: false,
         reason: `Run is ${state.status}; no further tool execution permitted (Hard Policy P5).`,
@@ -128,7 +158,13 @@ export class PolicyEngine {
         };
       }
 
-      if (/(rm\s+-rf\s+[\/\*]|mkfs|dd\s+if=.*of=\/dev|format\s+[c-z]:)/i.test(cmd)) {
+      const isRm = /\brm\b/i.test(cmd);
+      const hasRecursive = /(?:^|\s)-[a-z]*r[a-z]*(?=\s|$)/i.test(cmd) || /--recursive\b/i.test(cmd);
+      const hasForce = /(?:^|\s)-[a-z]*f[a-z]*(?=\s|$)/i.test(cmd) || /--force\b/i.test(cmd);
+      const isDestructiveRm = isRm && hasRecursive && hasForce;
+      const isDestructiveOther = /(mkfs|dd\s+.*of=\/dev\/|format\s+[a-z]:|:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:)/i.test(cmd);
+
+      if (isDestructiveRm || isDestructiveOther) {
         return {
           allowed: false,
           reason: 'Destructive root or wildcard command is strictly forbidden (Hard Policy P1).',
@@ -136,7 +172,7 @@ export class PolicyEngine {
         };
       }
 
-      if (/git\s+push/i.test(cmd) && !args.hasApproval && !request.hasApproval) {
+      if (/git\s+push/i.test(cmd) && !request.hasApproval) {
         return {
           allowed: false,
           reason: 'git push requires explicit prior human approval (Hard Policy P1).',
@@ -159,7 +195,7 @@ export class PolicyEngine {
     if (filePath && typeof filePath === 'string') {
       const resolved = path.resolve(this.rootDir, filePath);
 
-      if (!resolved.startsWith(this.rootDir)) {
+      if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
         return {
           allowed: false,
           reason: `Path '${filePath}' escapes workspace root boundary (Hard Policy P2).`,

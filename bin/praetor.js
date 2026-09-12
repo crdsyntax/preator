@@ -2,8 +2,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { defaultHostRegistry } from "../runtime/hosts/registry.js";
+import { AntigravityHostAdapter } from "../runtime/hosts/antigravity.js";
+import { McpHostAdapter } from "../runtime/hosts/mcp.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,110 +13,46 @@ const PRAETOR_ROOT = path.resolve(__dirname, "..");
 const PKG = JSON.parse(fs.readFileSync(path.join(PRAETOR_ROOT, "package.json"), "utf8"));
 const PRAETOR_VERSION = PKG.version;
 
-const HOOK_TEMPLATE_PATH = path.join(PRAETOR_ROOT, "runtime", "hosts", "templates", "praetor-hook.js");
-const RUNTIME_ANTIGRAVITY_PATH = path.join(PRAETOR_ROOT, "runtime", "hosts", "antigravity.js").replace(/\\/g, "/");
-
 function printHelp() {
+  const hosts = defaultHostRegistry.list().map(h => `    • ${h.name.padEnd(12)} - ${h.description}`).join("\n");
   console.log(`
-\x1b[1m\x1b[36mPraetor CLI\x1b[0m v${PRAETOR_VERSION} - Universal Governed Agent Runtime Framework
+\x1b[1m\x1b[36mPraetor CLI\x1b[0m v${PRAETOR_VERSION} - Governed Execution Runtime for AI Agent Tasks
 
 \x1b[1mUSAGE\x1b[0m
   $ praetor <command> [options]
 
 \x1b[1mCOMMANDS\x1b[0m
-  \x1b[32msetup\x1b[0m [targetPath]    Configure Praetor governance in target project (.agents/hooks.json)
-  \x1b[32mhook\x1b[0m                  Execute Antigravity hook interceptor via stdin/stdout
-  \x1b[32mverify\x1b[0m [targetPath]   Run automated intercept tests against project's Praetor hook
+  \x1b[32mtask\x1b[0m [create] [goal]    Create and initialize a Praetor Governed Task Session
+  \x1b[32msetup\x1b[0m [targetPath]    Configure project to use Praetor as governed execution runtime
+  \x1b[32mhosts\x1b[0m [targetPath]    List all supported host adapters and detection status
+  \x1b[32mverify\x1b[0m [targetPath]   Verify host connection to Praetor execution runtime
+  \x1b[32mhook\x1b[0m [hostName]       Execute stdio interceptor for host (default: antigravity)
+  \x1b[32mmcp\x1b[0m                   Execute Model Context Protocol (MCP) stdio server
   \x1b[32mversion\x1b[0m, \x1b[32m-v\x1b[0m           Print Praetor version
   \x1b[32mhelp\x1b[0m, \x1b[32m-h\x1b[0m              Show this help message
 
+\x1b[1mSUPPORTED HOSTS\x1b[0m
+${hosts}
+
 \x1b[1mSETUP OPTIONS\x1b[0m
-  --force               Overwrite existing hook script if present
+  --host <name>         Target host adapter (if omitted, runs auto-detection)
+  --force               Overwrite existing configuration or scripts
   --no-config           Do not generate baseline runtime.config.json
   --no-verify           Skip post-setup verification probe
 
 \x1b[1mEXAMPLES\x1b[0m
-  $ praetor setup
-  $ praetor setup D:\\Documents\\GitHub\\toketeo
-  $ praetor verify D:\\Documents\\GitHub\\toketeo
+  $ praetor hosts
+  $ praetor setup D:\\Documents\\GitHub\\my-project --host opencode
+  $ praetor setup D:\\Documents\\GitHub\\my-project --host claude
+  $ praetor setup D:\\Documents\\GitHub\\my-project --host antigravity
+  $ praetor setup D:\\Documents\\GitHub\\my-project --host mcp
+  $ praetor verify D:\\Documents\\GitHub\\my-project --host opencode
 `);
 }
 
-export function runSetup(targetDir = process.cwd(), options = {}) {
-  const resolvedTarget = path.resolve(targetDir);
-  console.log(`\x1b[1m\x1b[36m=== Praetor Setup (v${PRAETOR_VERSION}) ===\x1b[0m`);
-  console.log(`Target project: \x1b[33m${resolvedTarget}\x1b[0m\n`);
-
-  if (!fs.existsSync(resolvedTarget)) {
-    throw new Error(`Target directory does not exist: ${resolvedTarget}`);
-  }
-
-  const agentsDir = path.join(resolvedTarget, ".agents");
-  if (!fs.existsSync(agentsDir)) {
-    fs.mkdirSync(agentsDir, { recursive: true });
-    console.log(`  ✔ Created directory: .agents/`);
-  } else {
-    console.log(`  ✔ Directory exists: .agents/`);
-  }
-
-  const hookDest = path.join(agentsDir, "praetor-hook.js");
-  if (!fs.existsSync(HOOK_TEMPLATE_PATH)) {
-    throw new Error(`Hook template not found: ${HOOK_TEMPLATE_PATH}`);
-  }
-
-  let hookCode = fs.readFileSync(HOOK_TEMPLATE_PATH, "utf8");
-  hookCode = hookCode.replace("{{PRAETOR_RUNTIME_PATH}}", RUNTIME_ANTIGRAVITY_PATH);
-
-  if (fs.existsSync(hookDest) && !options.force) {
-    console.log(`  ✔ Thin hook already exists: .agents/praetor-hook.js (use --force to overwrite)`);
-  } else {
-    fs.writeFileSync(hookDest, hookCode, "utf8");
-    console.log(`  ✔ Installed thin hook: .agents/praetor-hook.js`);
-  }
-
-  const hooksJsonPath = path.join(agentsDir, "hooks.json");
-  let hooksConfig = {
-    $schema: "https://raw.githubusercontent.com/google/antigravity/main/schemas/hooks.schema.json",
-    version: "1.0",
-    hooks: {
-      PreToolUse: []
-    }
-  };
-
-  if (fs.existsSync(hooksJsonPath)) {
-    try {
-      const existing = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
-      hooksConfig = { ...hooksConfig, ...existing };
-      if (!hooksConfig.hooks) hooksConfig.hooks = {};
-      if (!Array.isArray(hooksConfig.hooks.PreToolUse)) hooksConfig.hooks.PreToolUse = [];
-    } catch (err) {
-      console.warn(`  ⚠ Warning reading existing hooks.json (${err.message}). Re-initializing.`);
-    }
-  }
-
-  const hookCommand = "bun .agents/praetor-hook.js";
-  const existingIdx = hooksConfig.hooks.PreToolUse.findIndex(h =>
-    h.command && (h.command.includes("praetor") || h.command.includes("antigravity.js"))
-  );
-
-  const hookEntry = {
-    matcher: "*",
-    command: hookCommand,
-    timeout: 10
-  };
-
-  if (existingIdx !== -1) {
-    hooksConfig.hooks.PreToolUse[existingIdx] = hookEntry;
-    console.log(`  ✔ Updated existing Praetor entry in: .agents/hooks.json`);
-  } else {
-    hooksConfig.hooks.PreToolUse.push(hookEntry);
-    console.log(`  ✔ Added Praetor PreToolUse hook to: .agents/hooks.json`);
-  }
-
-  fs.writeFileSync(hooksJsonPath, JSON.stringify(hooksConfig, null, 2), "utf8");
-
-  const runtimeConfigPath = path.join(resolvedTarget, "runtime.config.json");
-  if (!fs.existsSync(runtimeConfigPath) && !options.noConfig) {
+function ensureBaselineConfig(targetDir) {
+  const runtimeConfigPath = path.join(targetDir, "runtime.config.json");
+  if (!fs.existsSync(runtimeConfigPath)) {
     const defaultConfig = {
       $schema: "./schemas/runtime.config.schema.json",
       version: "1.0",
@@ -147,84 +85,107 @@ export function runSetup(targetDir = process.cwd(), options = {}) {
     fs.writeFileSync(runtimeConfigPath, JSON.stringify(defaultConfig, null, 2), "utf8");
     console.log(`  ✔ Created baseline: runtime.config.json`);
   }
+}
 
-  if (!options.noVerify) {
-    console.log(`\nVerifying thin hook execution in target project...`);
-    const verifyResult = runVerify(resolvedTarget);
-    if (!verifyResult) {
-      console.warn(`\x1b[33mSetup completed with verification warnings.\x1b[0m`);
+export function runHostsList(targetDir = process.cwd()) {
+  const resolvedTarget = path.resolve(targetDir);
+  console.log(`\x1b[1m\x1b[36m=== Praetor Supported Host Integrations ===\x1b[0m`);
+  console.log(`Inspecting target: \x1b[33m${resolvedTarget}\x1b[0m\n`);
+
+  const adapters = defaultHostRegistry.list();
+  for (const adapter of adapters) {
+    const isDetected = adapter.detect(resolvedTarget);
+    const statusLabel = isDetected ? `\x1b[32m✔ DETECTED\x1b[0m` : `\x1b[90m- not detected\x1b[0m`;
+    console.log(`  ${adapter.name.padEnd(14)} [${statusLabel.padEnd(20)}] : ${adapter.description}`);
+  }
+  console.log("");
+}
+
+export function runSetup(targetDir = process.cwd(), options = {}) {
+  const resolvedTarget = path.resolve(targetDir);
+
+  if (!fs.existsSync(resolvedTarget)) {
+    throw new Error(`Target directory does not exist: ${resolvedTarget}`);
+  }
+
+  let selectedAdapter = null;
+
+  if (options.host) {
+    selectedAdapter = defaultHostRegistry.get(options.host);
+    if (!selectedAdapter) {
+      const valid = defaultHostRegistry.list().map(h => h.name).join(", ");
+      throw new Error(`Unsupported host: '${options.host}'. Available hosts: ${valid}`);
+    }
+  } else {
+    const detected = defaultHostRegistry.detect(resolvedTarget);
+    if (detected.length === 1) {
+      selectedAdapter = detected[0];
+      console.log(`  ℹ Auto-detected host: \x1b[32m${selectedAdapter.name}\x1b[0m`);
+    } else if (detected.length > 1) {
+      const names = detected.map(d => d.name).join(", ");
+      console.error(`\x1b[33mMultiple host environments detected in ${resolvedTarget}: [${names}]\x1b[0m`);
+      console.error(`Please explicitly specify target host with:`);
+      console.error(`  $ praetor setup ${resolvedTarget} --host <name>\n`);
+      return false;
+    } else {
+      const valid = defaultHostRegistry.list().map(h => `  • --host ${h.name.padEnd(12)} (${h.description})`).join("\n");
+      console.error(`\x1b[33mNo host environment detected in ${resolvedTarget}.\x1b[0m`);
+      console.error(`Please explicitly specify target host to configure:\n${valid}\n`);
       return false;
     }
   }
 
-  console.log(`\n\x1b[32m✔ Praetor successfully instantiated in ${resolvedTarget}\x1b[0m\n`);
+  console.log(`\x1b[1m\x1b[36m=== Praetor Setup [Host: ${selectedAdapter.name}] (v${PRAETOR_VERSION}) ===\x1b[0m`);
+  console.log(`Target project: \x1b[33m${resolvedTarget}\x1b[0m\n`);
+
+  const result = selectedAdapter.setup(resolvedTarget, options);
+  console.log(`  ✔ Configured runtime integration for: \x1b[32m${selectedAdapter.name}\x1b[0m`);
+
+  if (!options.noConfig) {
+    ensureBaselineConfig(resolvedTarget);
+  }
+
+  if (!options.noVerify) {
+    console.log(`\nVerifying host integration...`);
+    try {
+      selectedAdapter.verify(resolvedTarget);
+      console.log(`  ✔ Integration verification passed for: \x1b[32m${selectedAdapter.name}\x1b[0m`);
+    } catch (err) {
+      console.warn(`  ⚠ Verification warning: ${err.message}`);
+    }
+  }
+
+  console.log(`\n\x1b[32m✔ Praetor governed execution runtime enabled for host '${selectedAdapter.name}' in ${resolvedTarget}\x1b[0m\n`);
   return true;
 }
 
-export function runVerify(targetDir = process.cwd()) {
+export function runVerify(targetDir = process.cwd(), options = {}) {
   const resolvedTarget = path.resolve(targetDir);
-  const hookScript = path.join(resolvedTarget, ".agents", "praetor-hook.js");
 
-  if (!fs.existsSync(hookScript)) {
-    console.error(`\x1b[31mError: Hook script not found at ${hookScript}\x1b[0m`);
-    return false;
-  }
-
-  function probe(payload) {
-    const res = spawnSync("bun", [hookScript], {
-      cwd: resolvedTarget,
-      input: JSON.stringify(payload) + "\n",
-      encoding: "utf8"
-    });
-
-    if (res.error) {
-      throw res.error;
+  let selectedAdapter = null;
+  if (options.host) {
+    selectedAdapter = defaultHostRegistry.get(options.host);
+    if (!selectedAdapter) {
+      const valid = defaultHostRegistry.list().map(h => h.name).join(", ");
+      throw new Error(`Unsupported host: '${options.host}'. Available hosts: ${valid}`);
     }
-    try {
-      return JSON.parse(res.stdout.trim());
-    } catch (err) {
-      throw new Error(`Hook output is not valid JSON: '${res.stdout.trim()}' (stderr: ${res.stderr})`);
+  } else {
+    const detected = defaultHostRegistry.detect(resolvedTarget);
+    if (detected.length === 1) {
+      selectedAdapter = detected[0];
+    } else if (detected.length > 1) {
+      throw new Error(`Multiple hosts detected: [${detected.map(d => d.name).join(', ')}]. Specify --host <name>`);
+    } else {
+      throw new Error(`No host detected in ${resolvedTarget}. Specify --host <name>`);
     }
   }
 
-  try {
-    const res1 = probe({
-      toolCall: { name: "view_file", args: { AbsolutePath: "package.json" } },
-      stepIdx: 1
-    });
-    if (res1.decision !== "allow") {
-      console.error(`  ✘ Probe 1 Failed: Expected allow for view_file, got ${res1.decision} (${res1.reason})`);
-      return false;
-    }
-    console.log(`  ✔ [Probe 1: Read Tool] Decision: allow`);
+  console.log(`\x1b[1m\x1b[36m=== Praetor Verification [Host: ${selectedAdapter.name}] ===\x1b[0m`);
+  console.log(`Target: \x1b[33m${resolvedTarget}\x1b[0m\n`);
 
-    const res2 = probe({
-      toolCall: { name: "run_command", args: { CommandLine: "git push --force origin main" } },
-      stepIdx: 2
-    });
-    if (res2.decision !== "deny") {
-      console.error(`  ✘ Probe 2 Failed: Expected deny for git push --force, got ${res2.decision}`);
-      return false;
-    }
-    console.log(`  ✔ [Probe 2: Destructive Command] Decision: deny (${res2.reason})`);
-
-    const emptyRes = spawnSync("bun", [hookScript], {
-      cwd: resolvedTarget,
-      input: "\n",
-      encoding: "utf8"
-    });
-    const parsedEmpty = JSON.parse(emptyRes.stdout.trim());
-    if (parsedEmpty.decision !== "deny" || parsedEmpty.code !== "HOOK_FAIL_CLOSED") {
-      console.error(`  ✘ Probe 3 Failed: Empty stdin did not fail-closed to deny`);
-      return false;
-    }
-    console.log(`  ✔ [Probe 3: Fail-Closed Stdin] Decision: deny (HOOK_FAIL_CLOSED)`);
-
-    return true;
-  } catch (err) {
-    console.error(`\x1b[31mVerification failed: ${err.message}\x1b[0m`);
-    return false;
-  }
+  selectedAdapter.verify(resolvedTarget);
+  console.log(`  ✔ Verification successful for host: \x1b[32m${selectedAdapter.name}\x1b[0m\n`);
+  return true;
 }
 
 async function main() {
@@ -241,20 +202,85 @@ async function main() {
     process.exit(0);
   }
 
+  if (cmd === "hosts") {
+    const target = args[1] && !args[1].startsWith("-") ? args[1] : process.cwd();
+    runHostsList(target);
+    process.exit(0);
+  }
+
   if (cmd === "hook" || cmd === "intercept") {
-    const { AntigravityHostAdapter } = await import("../runtime/hosts/antigravity.js");
-    await AntigravityHostAdapter.runCli();
+    const hostName = (args[1] && !args[1].startsWith("-") ? args[1] : "antigravity").toLowerCase();
+    if (hostName === "mcp") {
+      await McpHostAdapter.runCli();
+    } else {
+      await AntigravityHostAdapter.runCli();
+    }
+    process.exit(0);
+  }
+
+  if (cmd === "mcp") {
+    await McpHostAdapter.runCli();
+    process.exit(0);
+  }
+
+  if (cmd === "task") {
+    const sub = args[1];
+    let goal = "";
+    for (let i = 1; i < args.length; i++) {
+      if ((args[i] === "--goal" || args[i] === "-g" || args[i] === "--task") && args[i + 1]) {
+        goal = args[i + 1];
+        i++;
+      } else if (i === 1 && sub !== "create" && sub !== "execute" && sub !== "get" && !args[i].startsWith("-")) {
+        goal = args[i];
+      } else if (i === 2 && sub === "create" && !args[i].startsWith("-")) {
+        goal = args[i];
+      }
+    }
+    const { createTask, executeTask, getTask } = await import("../protocol/index.js");
+    if (sub === "execute") {
+      const target = args[2] || goal;
+      const executed = await executeTask(target);
+      console.log(JSON.stringify(executed, null, 2));
+      process.exit(0);
+    }
+    if (sub === "get") {
+      const target = args[2];
+      const taskInfo = getTask(target);
+      console.log(JSON.stringify(taskInfo, null, 2));
+      process.exit(0);
+    }
+    const task = createTask({ goal });
+    const output = {
+      taskId: task.taskId,
+      sessionId: task.sessionId,
+      status: "governed",
+      phase: task.phase,
+      goal: task.goal,
+      audit_seal: task.audit_seal,
+      created_at: task.createdAt
+    };
+    console.log(JSON.stringify(output, null, 2));
     process.exit(0);
   }
 
   if (cmd === "setup") {
-    const target = args[1] && !args[1].startsWith("-") ? args[1] : process.cwd();
+    let target = process.cwd();
+    let host = null;
     const force = args.includes("--force");
     const noConfig = args.includes("--no-config");
     const noVerify = args.includes("--no-verify");
 
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === "--host" && args[i + 1]) {
+        host = args[i + 1];
+        i++;
+      } else if (!args[i].startsWith("-")) {
+        target = args[i];
+      }
+    }
+
     try {
-      const ok = runSetup(target, { force, noConfig, noVerify });
+      const ok = runSetup(target, { host, force, noConfig, noVerify });
       process.exit(ok ? 0 : 1);
     } catch (err) {
       console.error(`\x1b[31mSetup error: ${err.message}\x1b[0m`);
@@ -263,11 +289,24 @@ async function main() {
   }
 
   if (cmd === "verify") {
-    const target = args[1] && !args[1].startsWith("-") ? args[1] : process.cwd();
-    console.log(`\x1b[1m\x1b[36m=== Praetor Hook Verification ===\x1b[0m`);
-    console.log(`Target: \x1b[33m${path.resolve(target)}\x1b[0m\n`);
-    const ok = runVerify(target);
-    process.exit(ok ? 0 : 1);
+    let target = process.cwd();
+    let host = null;
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === "--host" && args[i + 1]) {
+        host = args[i + 1];
+        i++;
+      } else if (!args[i].startsWith("-")) {
+        target = args[i];
+      }
+    }
+
+    try {
+      const ok = runVerify(target, { host });
+      process.exit(ok ? 0 : 1);
+    } catch (err) {
+      console.error(`\x1b[31mVerification error: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
   }
 
   console.error(`Unknown command: ${cmd}`);

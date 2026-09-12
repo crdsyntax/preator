@@ -26,5 +26,5 @@ Process:
 Zero `any` tolerance.
 Use `bun` for package management and testing.
 Mandatory pre-commit checks:
-- `bun run test` (Audit, Architectural Conformance ARCH-01..07, and Evaluation 35/35)
+- `bun run test` (Audit, Architectural Conformance ARCH-01..10, and Evaluation 35/35)
 - `bun run agents:enforce`

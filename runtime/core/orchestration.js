@@ -90,6 +90,30 @@ export class OrchestratorEngine {
       };
     }
 
+    const parentRecord = this.authorizedAgents.get(parentAgent);
+    const parentCaps = parentRecord?.def?.capabilities;
+    if (parentCaps) {
+      if (parentCaps.can_delegate === false) {
+        return {
+          allowed: false,
+          error: {
+            code: DELEGATION_ERRORS.UNAUTHORIZED_DELEGATION_DENIED,
+            message: `Agent '${parentAgent}' declares can_delegate=false and may not delegate.`
+          }
+        };
+      }
+      const targets = parentCaps.delegation_targets;
+      if (Array.isArray(targets) && targets.length > 0 && !targets.includes(childAgent)) {
+        return {
+          allowed: false,
+          error: {
+            code: DELEGATION_ERRORS.UNAUTHORIZED_DELEGATION_DENIED,
+            message: `Agent '${parentAgent}' is not authorized to delegate to '${childAgent}'. Allowed targets: [${targets.join(', ')}].`
+          }
+        };
+      }
+    }
+
     if (depth > this.maxDepth) {
       return {
         allowed: false,
@@ -235,25 +259,40 @@ export class OrchestratorEngine {
     } catch (err) {
       const durationMs = Date.now() - startMs;
       this.activeDelegations.delete(delegation_id);
-      taskOwnership.status = 'FAILED';
+
+      taskOwnership.status = 'REVOKED';
+      taskOwnership.revoked_to = parent_agent_id;
+      taskOwnership.revoked_at = new Date().toISOString();
+
+      const revokedOwnership = createTaskOwnership({
+        taskId,
+        ownerAgentId: parent_agent_id,
+        parentTaskId: task.parentTaskId || null,
+        description: task.description || '',
+        status: 'ASSIGNED'
+      });
+      this.taskOwnerships.set(taskId, revokedOwnership);
 
       if (this.events) {
-        this.events.append('delegation.failed', {
+        this.events.append('delegation.revoked', {
           delegation_id,
           parent_run_id,
           child_run_id,
           child_agent_id,
-          duration_ms: durationMs,
-          status: 'error',
-          error: err.message
+          parent_agent_id,
+          task_id: taskId,
+          reason: err.message,
+          duration_ms: durationMs
         });
       }
 
       return createDelegationResult({
         delegationId: delegation_id,
         childRunId: child_run_id,
-        status: DELEGATION_STATUS.FAILED,
+        status: DELEGATION_STATUS.REVOKED,
         error: { code: 'EXECUTION_FAILED', message: err.message },
+        revokedFrom: child_agent_id,
+        revokedTo: parent_agent_id,
         durationMs
       });
     }

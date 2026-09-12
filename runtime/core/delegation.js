@@ -3,7 +3,8 @@ export const DELEGATION_STATUS = Object.freeze({
   ACTIVE: 'ACTIVE',
   COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
-  DENIED: 'DENIED'
+  DENIED: 'DENIED',
+  REVOKED: 'REVOKED'
 });
 
 export const DELEGATION_ERRORS = Object.freeze({
@@ -65,7 +66,9 @@ export function createDelegationResult({
   output = null,
   error = null,
   durationMs = 0,
-  completedAt = null
+  completedAt = null,
+  revokedFrom = null,
+  revokedTo = null
 }) {
   if (!delegationId) throw new Error("DelegationResult requires 'delegationId'");
   if (!DELEGATION_STATUS[status]) {
@@ -79,7 +82,9 @@ export function createDelegationResult({
     output,
     error: error ? Object.freeze(typeof error === 'string' ? { code: 'DELEGATION_FAILED', message: error } : { ...error }) : null,
     duration_ms: Math.max(0, durationMs),
-    completed_at: completedAt || new Date().toISOString()
+    completed_at: completedAt || new Date().toISOString(),
+    revoked_from: revokedFrom || null,
+    revoked_to: revokedTo || null
   });
 }
 

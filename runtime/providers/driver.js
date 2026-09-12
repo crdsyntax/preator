@@ -50,7 +50,8 @@ export class ProviderDriver {
       agentDefinition: this.session.agentDefinition,
       contextBundle: this.session.contextBundle || null,
       history: this.history,
-      availableTools
+      availableTools,
+      skills: this.session.getAttachedSkills ? this.session.getAttachedSkills() : []
     });
 
     const turnResponse = await this.adapter.generateTurn(turnRequest);

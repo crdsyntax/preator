@@ -43,8 +43,17 @@ export class ContextGovernance {
   isAccessAllowed(targetPath) {
     const resolved = path.resolve(this.rootDir, targetPath);
 
-    if (!resolved.startsWith(this.rootDir)) {
+    if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
       return { allowed: false, reason: 'PATH_TRAVERSAL_DENIED', message: 'Target path escapes workspace root boundary' };
+    }
+
+    try {
+      const realResolved = fs.realpathSync(resolved);
+      if (realResolved !== this.rootDir && !realResolved.startsWith(this.rootDir + path.sep)) {
+        return { allowed: false, reason: 'PATH_TRAVERSAL_DENIED', message: 'Target path escapes workspace root boundary via symbolic link' };
+      }
+    } catch {
+      // Path does not exist yet; lexical boundary check above remains authoritative.
     }
 
     const relPath = path.relative(this.rootDir, resolved).replace(/\\/g, '/');

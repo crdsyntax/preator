@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { deepFreeze } from './contracts.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FRAMEWORK_AGENTS_DIR = path.resolve(__dirname, '../../agents');
 
 export function validateAgentDefinition(def) {
   if (!def || typeof def !== 'object') {
@@ -241,4 +246,23 @@ export class AgentCatalog {
     }
     return loaded;
   }
+}
+
+let defaultCatalogInstance = null;
+
+export function getDefaultAgentCatalog(agentsDir = null) {
+  if (defaultCatalogInstance && !agentsDir) {
+    return defaultCatalogInstance;
+  }
+  const catalog = new AgentCatalog();
+  if (fs.existsSync(FRAMEWORK_AGENTS_DIR)) {
+    catalog.loadFromDir(FRAMEWORK_AGENTS_DIR);
+  }
+  if (agentsDir && fs.existsSync(agentsDir) && agentsDir !== FRAMEWORK_AGENTS_DIR) {
+    catalog.loadFromDir(agentsDir);
+  }
+  if (!agentsDir) {
+    defaultCatalogInstance = catalog;
+  }
+  return catalog;
 }

@@ -11,3 +11,4 @@ export * from './orchestration.js';
 export * from './agents.js';
 export * from './skills.js';
 export * from './context.js';
+export * from './executor.js';

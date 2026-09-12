@@ -31,7 +31,7 @@ const ALL_SCENARIOS = [
 ];
 
 async function runEvaluation() {
-  console.log('\x1b[1m\x1b[35m=== Praetor Benchmark Harness (v0.1.1) ===\x1b[0m\n');
+  console.log(`\x1b[1m\x1b[35m=== Praetor Benchmark Harness (v${VERSION}) ===\x1b[0m\n`);
   console.log(`Loaded ${ALL_SCENARIOS.length} scenarios across 9 evaluation suites.\n`);
 
   const runner = new EvaluationRunner();

@@ -40,6 +40,7 @@ export function createModelTurnRequest({
   contextBundle = null,
   history = [],
   availableTools = [],
+  skills = [],
   metadata = {}
 }) {
   const req = {
@@ -50,6 +51,12 @@ export function createModelTurnRequest({
     context_bundle: contextBundle ? { ...contextBundle } : null,
     history: Array.isArray(history) ? [...history] : [],
     available_tools: Array.isArray(availableTools) ? [...availableTools] : [],
+    skills: Array.isArray(skills) ? skills.map(s => ({
+      id: s.id,
+      name: s.name,
+      description: s.description || '',
+      instructions: s.instructions || ''
+    })) : [],
     metadata: { ...metadata },
     timestamp: new Date().toISOString()
   };

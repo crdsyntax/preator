@@ -1,6 +1,9 @@
 import {
   TOOL_STATUS,
   ERROR_CATEGORIES,
+  RISK_LEVELS,
+  WRITE_TOOLS,
+  ALLOWED_WRITE_PHASES,
   createToolResult,
   createToolError,
   computeCanonicalHash,
@@ -9,6 +12,16 @@ import {
 import { LifecycleMachine } from './lifecycle.js';
 import { ToolRegistry } from './registry.js';
 import { PolicyEngine } from './policy.js';
+
+const SENSITIVE_ARG_KEY = /(pass(?:word)?|secret|token|api[_-]?key|credential|authorization|bearer|private[_-]?key)/i;
+
+function redactArgs(args = {}) {
+  const out = {};
+  for (const [key, value] of Object.entries(args || {})) {
+    out[key] = SENSITIVE_ARG_KEY.test(key) ? '[REDACTED]' : value;
+  }
+  return out;
+}
 
 export class ExecutionGateway {
   constructor({
@@ -118,7 +131,7 @@ export class ExecutionGateway {
       }
     }
 
-    if (this.lifecycle.isWriteTool(toolName) && !this.lifecycle.isWriteAllowed()) {
+    if (WRITE_TOOLS.has(toolName) && !ALLOWED_WRITE_PHASES.has(phase)) {
       const toolError = createToolError({
         code: 'LIFECYCLE_DENIED',
         message: `Write tool '${toolName}' is forbidden in phase '${phase}'. Allowed only in EXECUTE and DOCUMENT.`,
@@ -151,13 +164,15 @@ export class ExecutionGateway {
     }
 
     const isExplicitApprovalRequired = toolDef.requiresApproval === true;
-    const isApproved = Boolean(context.hasApproval || args.hasApproval);
-    if (isExplicitApprovalRequired && !isApproved) {
+    const isCriticalRisk = toolRequest.risk_level === RISK_LEVELS.CRITICAL;
+    const requiresApproval = isExplicitApprovalRequired || isCriticalRisk;
+    const isApproved = Boolean(context.hasApproval);
+    if (requiresApproval && !isApproved) {
       if (this.approvals) {
         this.approvals.requestApproval({
           action: toolName,
           description: `Execution of high-risk tool '${toolName}'`,
-          metadata: { requestId, args }
+          metadata: { requestId, args: redactArgs(args), risk_level: toolRequest.risk_level }
         });
       }
       const toolError = createToolError({
@@ -178,7 +193,8 @@ export class ExecutionGateway {
       this.events.append('tool.requested', {
         phase,
         tool_name: toolName,
-        tool_args: { ...args, request_id: requestId }
+        risk_level: toolRequest.risk_level,
+        tool_args: { ...redactArgs(args), request_id: requestId }
       });
     }
 
@@ -241,7 +257,7 @@ export class ExecutionGateway {
         tool_name: toolName,
         status: 'denied',
         error: errorReason,
-        tool_args: { ...(args || {}), request_id: requestId }
+        tool_args: { ...redactArgs(args), request_id: requestId }
       });
     }
   }

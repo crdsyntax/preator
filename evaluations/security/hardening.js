@@ -1,7 +1,7 @@
 import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createSession } from '../../runtime/index.js';
+import { createSession, VERSION } from '../../runtime/index.js';
 import { ExecutionGateway } from '../../runtime/core/gateway.js';
 import { ToolRegistry } from '../../runtime/core/registry.js';
 import { PolicyEngine } from '../../runtime/core/policy.js';
@@ -12,7 +12,7 @@ import { AntigravityHostAdapter } from '../../runtime/hosts/antigravity.js';
 import { HostDriver } from '../../runtime/hosts/driver.js';
 import { createHostToolInvocation } from '../../runtime/hosts/contracts.js';
 
-console.log('=== Praetor Security Hardening Suite (v0.1.1) (HRD-01 .. HRD-06) ===\n');
+console.log(`=== Praetor Security Hardening Suite (v${VERSION}) (HRD-01 .. HRD-06) ===\n`);
 
 let passed = 0;
 let total = 0;

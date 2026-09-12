@@ -5,8 +5,13 @@ import { validateTraceSequence } from "./lifecycle.js";
 
 export const DEFAULT_SESSIONS_ROOT = path.join(process.cwd(), '.agent', 'sessions');
 
-export function computeStateHash({ sessionId, currentPhase, iteration, status, agentId }) {
-  const payload = `${sessionId}:${currentPhase}:${iteration}:${status}:${agentId}`;
+export function computeStateHash({ sessionId, currentPhase, iteration, status, agentId, pendingApproval = null }) {
+  const base = `${sessionId}:${currentPhase}:${iteration}:${status}:${agentId}`;
+  const payload = pendingApproval ? `${base}:${pendingApproval}` : base;
+  const secret = process.env.PRAETOR_STATE_SECRET;
+  if (secret) {
+    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  }
   return crypto.createHash('sha256').update(payload).digest('hex');
 }
 
@@ -38,7 +43,8 @@ export class SessionState {
       currentPhase: this.currentPhase,
       iteration: this.iteration,
       status: this.status,
-      agentId: this.agentId
+      agentId: this.agentId,
+      pendingApproval: this.pendingApproval
     });
     this.tampered = tampered;
     this.sessionsRoot = sessionsRoot;
@@ -46,6 +52,10 @@ export class SessionState {
     this.filePath = path.join(this.sessionDir, 'state.json');
 
     this.ensureDirectory();
+  }
+
+  get state_hash() {
+    return this.stateHash;
   }
 
   ensureDirectory() {
@@ -60,7 +70,8 @@ export class SessionState {
       currentPhase: this.currentPhase,
       iteration: this.iteration,
       status: this.status,
-      agentId: this.agentId
+      agentId: this.agentId,
+      pendingApproval: this.pendingApproval
     });
 
     return {
@@ -100,11 +111,16 @@ export class SessionState {
         currentPhase: data.current_phase,
         iteration: data.iteration,
         status: data.status,
-        agentId: data.agent_id
+        agentId: data.agent_id,
+        pendingApproval: data.pending_approval
       });
 
       let isTampered = false;
-      if (data.state_hash && data.state_hash !== expectedHash) {
+      const hasValidSeal = typeof data.state_hash === 'string' && /^[0-9a-f]{64}$/i.test(data.state_hash);
+      if (!hasValidSeal) {
+        console.warn(`[SessionState] Tampering detected in ${sessionId}: state_hash is missing or malformed.`);
+        isTampered = true;
+      } else if (data.state_hash !== expectedHash) {
         console.warn(`[SessionState] Tampering detected in ${sessionId}: state_hash mismatch.`);
         isTampered = true;
       }
