@@ -8,6 +8,8 @@
     "max_concurrency": 4
   },
   "workspace": {
+    "follow_symlinks": false,
+    "symlink_allowlist": [],
     "boundaries": {
       "allowed": [
         "agents",

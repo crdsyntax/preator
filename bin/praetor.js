@@ -26,6 +26,8 @@ function printHelp() {
   \x1b[32msetup\x1b[0m [targetPath]    Configure project to use Praetor as governed execution runtime
   \x1b[32mhosts\x1b[0m [targetPath]    List all supported host adapters and detection status
   \x1b[32mverify\x1b[0m [targetPath]   Verify host connection to Praetor execution runtime
+  \x1b[32mmigrate\x1b[0m [targetPath]  Re-seal legacy (v1) session state to v2; quarantine invalid sessions
+  \x1b[32mdoctor\x1b[0m [targetPath]   Check seal key, session integrity and runtime configuration
   \x1b[32mhook\x1b[0m [hostName]       Execute stdio interceptor for host (default: antigravity)
   \x1b[32mmcp\x1b[0m                   Execute Model Context Protocol (MCP) stdio server
   \x1b[32mversion\x1b[0m, \x1b[32m-v\x1b[0m           Print Praetor version
@@ -305,6 +307,39 @@ async function main() {
       process.exit(ok ? 0 : 1);
     } catch (err) {
       console.error(`\x1b[31mVerification error: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
+  }
+
+  if (cmd === "migrate") {
+    const target = args[1] && !args[1].startsWith("-") ? args[1] : process.cwd();
+    const dryRun = args.includes("--dry-run");
+    try {
+      const { runMigrate } = await import("../scripts/migrate-runtime.js");
+      const summary = runMigrate(target, { dryRun });
+      console.log(JSON.stringify(summary, null, 2));
+      process.exit(summary.errors.length > 0 ? 1 : 0);
+    } catch (err) {
+      console.error(`\x1b[31mMigrate error: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
+  }
+
+  if (cmd === "doctor") {
+    const target = args[1] && !args[1].startsWith("-") ? args[1] : process.cwd();
+    try {
+      const { runDoctor } = await import("../scripts/doctor.js");
+      const report = runDoctor(target);
+      console.log(`\x1b[1m\x1b[36m=== Praetor Doctor ===\x1b[0m`);
+      console.log(`Target: ${report.target}\n`);
+      for (const check of report.checks) {
+        const mark = check.ok ? "\x1b[32m\u2714\x1b[0m" : "\x1b[31m\u2718\x1b[0m";
+        console.log(`  ${mark} ${check.id}: ${check.message}`);
+      }
+      console.log(`\n${report.healthy ? "\x1b[32mHealthy\x1b[0m" : "\x1b[31mIssues detected\x1b[0m"}\n`);
+      process.exit(report.healthy ? 0 : 1);
+    } catch (err) {
+      console.error(`\x1b[31mDoctor error: ${err.message}\x1b[0m`);
       process.exit(1);
     }
   }

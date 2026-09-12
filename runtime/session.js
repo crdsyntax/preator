@@ -102,8 +102,23 @@ export class AgentSession {
     this.contextBundles = new Map();
 
     this.lifecycle = new LifecycleMachine(hydrated ? this.state.currentPhase : initialPhase);
-    this.events = new EventLog({ sessionId: this.state.sessionId });
-    this.approvals = new ApprovalManager();
+    this.events = new EventLog({
+      sessionId: this.state.sessionId,
+      logDir: this.state.sessionDir,
+      key: this.state.sealKey,
+      loadExisting: hydrated
+    });
+    this.approvals = new ApprovalManager({
+      onChange: (records) => {
+        this.state.approvals = records;
+        const pending = records.filter(r => r.status === APPROVAL_STATUS.PENDING);
+        this.state.pendingApproval = pending.length > 0 ? pending[pending.length - 1].id : null;
+        this.state.save();
+      }
+    });
+    if (Array.isArray(this.state.approvals) && this.state.approvals.length > 0) {
+      this.approvals.load(this.state.approvals);
+    }
     this.policy = policy || new PolicyEngine({ projectConfig });
     this.registry = new ToolRegistry();
     this.gateway = new ExecutionGateway({
@@ -313,8 +328,8 @@ export class AgentSession {
     return record;
   }
 
-  decideApproval(approvalId, approved, reason = '') {
-    const record = this.approvals.resolveApproval(approvalId, { approved, reason });
+  decideApproval(approvalId, approved, reason = '', resolvedBy = null) {
+    const record = this.approvals.resolveApproval(approvalId, { approved, reason, resolvedBy });
     if (this.state.pendingApproval === approvalId) {
       this.state.pendingApproval = null;
       this.state.save();

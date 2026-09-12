@@ -1,9 +1,9 @@
 # Praetor
 
-> **Praetor v0.2.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
+> **Praetor v0.3.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
 > Formal 8-Phase Lifecycle FSM • Dual-Layer Security Policy • Anti-TOCTOU Argument Integrity • Cryptographic State Sealing • PowerShell De-obfuscation • Host Interceptors & MCP • 35-Scenario Benchmark Harness
 
-[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](package.json)
 [![CI Standard](https://img.shields.io/badge/CI-Zero%20Regressions-brightgreen.svg)]()
 [![Audit](https://img.shields.io/badge/Audit-30%2F30%20Passed-brightgreen.svg)]()
 [![Hardening](https://img.shields.io/badge/Hardening-HRD--01..06%20Passed-brightgreen.svg)]()
@@ -368,7 +368,7 @@ bun run test
 # 2. Run Framework Audit (30 structural checks)
 bun run agents:audit
 
-# 3. Run Security Hardening Suite (HRD-01 to HRD-06)
+# 3. Run Security Hardening Suite (HRD-01 to HRD-13)
 bun run test:hardening
 
 # 4. Run Architectural Conformance Gate (ARCH-01 to ARCH-10)
@@ -379,7 +379,13 @@ bun run agents:evaluate
 
 # 6. Verify Real Host PreToolUse Hook Enforcement (stdin/stdout IPC)
 bun run agents:enforce
+
+# 7. Inspect runtime health and migrate legacy (v1) sealed sessions to v2
+praetor doctor [targetPath]
+praetor migrate [targetPath] --dry-run
 ```
+
+> **Sealing & approvals (v0.3.0):** `state.json` is HMAC-sealed when a key is present (`PRAETOR_STATE_SECRET` or `.agent/state.key`), `events.jsonl` is hash-chained, and human approvals are bound to the exact request. See [`SECURITY.md`](./SECURITY.md) for the threat model and key-management guidance, and [`CHANGELOG.md`](./CHANGELOG.md) for migration notes.
 
 ---
 
@@ -396,6 +402,8 @@ bun run agents:enforce
     "max_concurrency": 4
   },
   "workspace": {
+    "follow_symlinks": false,
+    "symlink_allowlist": [],
     "boundaries": {
       "allowed": ["src", "app", "tests", "docs", "scripts"],
       "denied": ["node_modules", ".git", ".env"]

@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { deepFreeze } from './contracts.js';
 import { HARD_DENIED_PATTERNS } from './policy.js';
+import { resolveWithinRoot } from './paths.js';
 
 export const CONTEXT_SOURCE_TYPES = Object.freeze({
   FILE: 'file',
@@ -32,30 +33,29 @@ export class ContextGovernance {
     rootDir = process.cwd(),
     allowedScopes = null,
     deniedPatterns = HARD_DENIED_PATTERNS,
-    maxFileSizeBytes = MAX_FILE_SIZE_BYTES
+    maxFileSizeBytes = MAX_FILE_SIZE_BYTES,
+    followSymlinks = false,
+    symlinkAllowlist = []
   } = {}) {
     this.rootDir = path.resolve(rootDir);
     this.allowedScopes = Array.isArray(allowedScopes) ? allowedScopes : null;
     this.deniedPatterns = deniedPatterns;
     this.maxFileSizeBytes = maxFileSizeBytes;
+    this.followSymlinks = followSymlinks === true;
+    this.symlinkAllowlist = Array.isArray(symlinkAllowlist) ? symlinkAllowlist : [];
   }
 
   isAccessAllowed(targetPath) {
+    const boundary = resolveWithinRoot(this.rootDir, targetPath, {
+      followSymlinks: this.followSymlinks,
+      symlinkAllowlist: this.symlinkAllowlist
+    });
+
+    if (!boundary.allowed) {
+      return { allowed: false, reason: boundary.reason, message: boundary.message };
+    }
+
     const resolved = path.resolve(this.rootDir, targetPath);
-
-    if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
-      return { allowed: false, reason: 'PATH_TRAVERSAL_DENIED', message: 'Target path escapes workspace root boundary' };
-    }
-
-    try {
-      const realResolved = fs.realpathSync(resolved);
-      if (realResolved !== this.rootDir && !realResolved.startsWith(this.rootDir + path.sep)) {
-        return { allowed: false, reason: 'PATH_TRAVERSAL_DENIED', message: 'Target path escapes workspace root boundary via symbolic link' };
-      }
-    } catch {
-      // Path does not exist yet; lexical boundary check above remains authoritative.
-    }
-
     const relPath = path.relative(this.rootDir, resolved).replace(/\\/g, '/');
 
     for (const pattern of this.deniedPatterns) {

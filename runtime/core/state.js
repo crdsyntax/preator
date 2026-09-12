@@ -1,18 +1,24 @@
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import { validateTraceSequence } from "./lifecycle.js";
+import {
+  SEAL_VERSION,
+  SEAL_ALGOS,
+  createSeal,
+  verifySeal,
+  verifyChainSegment,
+  legacyStateHash,
+  resolveStateKey
+} from "./sealing.js";
 
 export const DEFAULT_SESSIONS_ROOT = path.join(process.cwd(), '.agent', 'sessions');
 
-export function computeStateHash({ sessionId, currentPhase, iteration, status, agentId, pendingApproval = null }) {
-  const base = `${sessionId}:${currentPhase}:${iteration}:${status}:${agentId}`;
-  const payload = pendingApproval ? `${base}:${pendingApproval}` : base;
-  const secret = process.env.PRAETOR_STATE_SECRET;
-  if (secret) {
-    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
-  }
-  return crypto.createHash('sha256').update(payload).digest('hex');
+export function defaultStateKeyPath() {
+  return path.join(process.cwd(), '.agent', 'state.key');
+}
+
+export function computeStateHash(fields) {
+  return legacyStateHash(fields);
 }
 
 export class SessionState {
@@ -25,7 +31,12 @@ export class SessionState {
     iteration = 0,
     currentPhase = 'REQUEST',
     pendingApproval = null,
+    approvals = [],
     stateHash = null,
+    sealVersion = null,
+    sealKey = undefined,
+    keyPath = null,
+    strictSeal = false,
     tampered = false,
     sessionsRoot = DEFAULT_SESSIONS_ROOT
   }) {
@@ -38,24 +49,49 @@ export class SessionState {
     this.iteration = iteration;
     this.currentPhase = currentPhase;
     this.pendingApproval = pendingApproval;
-    this.stateHash = stateHash || computeStateHash({
-      sessionId: this.sessionId,
-      currentPhase: this.currentPhase,
-      iteration: this.iteration,
-      status: this.status,
-      agentId: this.agentId,
-      pendingApproval: this.pendingApproval
-    });
+    this.approvals = Array.isArray(approvals) ? approvals : [];
     this.tampered = tampered;
     this.sessionsRoot = sessionsRoot;
     this.sessionDir = path.join(this.sessionsRoot, this.sessionId);
     this.filePath = path.join(this.sessionDir, 'state.json');
+
+    this.sealKey = sealKey !== undefined
+      ? sealKey
+      : resolveStateKey({ keyPath: keyPath || defaultStateKeyPath(), required: strictSeal, allowLegacy: !strictSeal });
+    this.sealVersion = sealVersion || (this.sealKey ? SEAL_VERSION : 1);
+    this.sealAlgo = this.sealVersion === SEAL_VERSION ? SEAL_ALGOS.V2 : SEAL_ALGOS.V1;
+    this.stateHash = stateHash;
+
+    if (!this.stateHash) {
+      this._applySeal();
+    }
 
     this.ensureDirectory();
   }
 
   get state_hash() {
     return this.stateHash;
+  }
+
+  _sealFields() {
+    return {
+      sessionId: this.sessionId,
+      currentPhase: this.currentPhase,
+      iteration: this.iteration,
+      status: this.status,
+      agentId: this.agentId,
+      pendingApproval: this.pendingApproval,
+      approvals: this.approvals,
+      goal: this.goal,
+      context: this.context
+    };
+  }
+
+  _applySeal() {
+    const seal = createSeal({ fields: this._sealFields(), key: this.sealKey, version: this.sealVersion });
+    this.stateHash = seal.state_hash;
+    this.sealVersion = seal.seal_version;
+    this.sealAlgo = seal.seal_algo;
   }
 
   ensureDirectory() {
@@ -65,17 +101,12 @@ export class SessionState {
   }
 
   toJSON() {
-    this.stateHash = computeStateHash({
-      sessionId: this.sessionId,
-      currentPhase: this.currentPhase,
-      iteration: this.iteration,
-      status: this.status,
-      agentId: this.agentId,
-      pendingApproval: this.pendingApproval
-    });
+    this._applySeal();
 
     return {
       version: this.version,
+      seal_version: this.sealVersion,
+      seal_algo: this.sealAlgo,
       session_id: this.sessionId,
       agent_id: this.agentId,
       status: this.status,
@@ -84,6 +115,7 @@ export class SessionState {
       goal: this.goal,
       context: this.context,
       pending_approval: this.pendingApproval,
+      approvals: this.approvals,
       state_hash: this.stateHash,
       tampered: this.tampered,
       updated_at: new Date().toISOString()
@@ -96,7 +128,7 @@ export class SessionState {
     return this.filePath;
   }
 
-  static load(sessionId, sessionsRoot = DEFAULT_SESSIONS_ROOT) {
+  static load(sessionId, sessionsRoot = DEFAULT_SESSIONS_ROOT, { key = undefined, keyPath = null, strictSeal = false } = {}) {
     const sessionDir = path.join(sessionsRoot, sessionId);
     const filePath = path.join(sessionDir, 'state.json');
     if (!fs.existsSync(filePath)) {
@@ -106,21 +138,32 @@ export class SessionState {
     try {
       const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
-      const expectedHash = computeStateHash({
+      const resolvedKey = key !== undefined
+        ? key
+        : resolveStateKey({ keyPath: keyPath || defaultStateKeyPath(), required: strictSeal, allowLegacy: !strictSeal });
+      const declaredVersion = data.seal_version === SEAL_VERSION ? SEAL_VERSION : 1;
+
+      const fields = {
         sessionId: data.session_id,
         currentPhase: data.current_phase,
         iteration: data.iteration,
         status: data.status,
         agentId: data.agent_id,
-        pendingApproval: data.pending_approval
-      });
+        pendingApproval: data.pending_approval,
+        approvals: data.approvals,
+        goal: data.goal,
+        context: data.context
+      };
 
       let isTampered = false;
       const hasValidSeal = typeof data.state_hash === 'string' && /^[0-9a-f]{64}$/i.test(data.state_hash);
       if (!hasValidSeal) {
         console.warn(`[SessionState] Tampering detected in ${sessionId}: state_hash is missing or malformed.`);
         isTampered = true;
-      } else if (data.state_hash !== expectedHash) {
+      } else if (declaredVersion === SEAL_VERSION && !resolvedKey) {
+        console.warn(`[SessionState] Tampering detected in ${sessionId}: v2 seal present but no seal key available.`);
+        isTampered = true;
+      } else if (!verifySeal({ fields, seal: data, key: resolvedKey, version: declaredVersion })) {
         console.warn(`[SessionState] Tampering detected in ${sessionId}: state_hash mismatch.`);
         isTampered = true;
       }
@@ -140,6 +183,12 @@ export class SessionState {
           console.warn(`[SessionState] Tampering detected in ${sessionId}: state.current_phase '${data.current_phase}' does not match event trace terminal '${traceResult.terminalPhase}'.`);
           isTampered = true;
         }
+
+        const chainResult = verifyChainSegment(events, { key: resolvedKey });
+        if (!chainResult.valid) {
+          console.warn(`[SessionState] Tampering detected in ${sessionId}: event hash chain broken (${chainResult.reason} at index ${chainResult.brokenAt}).`);
+          isTampered = true;
+        }
       }
 
       const effectivePhase = isTampered ? 'REQUEST' : data.current_phase;
@@ -153,7 +202,10 @@ export class SessionState {
         iteration: data.iteration,
         currentPhase: effectivePhase,
         pendingApproval: data.pending_approval,
-        stateHash: data.state_hash,
+        approvals: data.approvals,
+        stateHash: isTampered ? null : data.state_hash,
+        sealVersion: declaredVersion,
+        sealKey: resolvedKey,
         tampered: isTampered,
         sessionsRoot
       });

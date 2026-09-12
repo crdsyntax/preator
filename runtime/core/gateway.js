@@ -147,8 +147,26 @@ export class ExecutionGateway {
       });
     }
 
-    const policyDecision = this.policy.canExecute({ tool: toolName, args }, { ...state, current_phase: phase });
+    const canonicalHash = computeCanonicalHash(toolName, args);
+    let grant = { valid: false, request: null };
+    if (this.approvals && typeof this.approvals.verifyGrant === 'function') {
+      grant = this.approvals.verifyGrant({ requestId, canonicalHash, action: toolName });
+    }
+    if (context.hasApproval) {
+      console.warn('[ExecutionGateway] context.hasApproval is deprecated and ignored; use ApprovalManager grants (session.requestApproval / approveTask).');
+    }
+
+    const policyDecision = this.policy.canExecute({ tool: toolName, args, hasApproval: grant.valid }, { ...state, current_phase: phase });
     if (!policyDecision.allowed) {
+      if (policyDecision.policy === 'P1_PUSH_APPROVAL_REQUIRED' && this.approvals) {
+        this.approvals.requestApproval({
+          action: toolName,
+          description: 'Command requires prior human approval before execution',
+          requestId,
+          canonicalHash,
+          riskLevel: toolRequest.risk_level
+        });
+      }
       const toolError = createToolError({
         code: policyDecision.policy,
         message: policyDecision.reason,
@@ -166,13 +184,14 @@ export class ExecutionGateway {
     const isExplicitApprovalRequired = toolDef.requiresApproval === true;
     const isCriticalRisk = toolRequest.risk_level === RISK_LEVELS.CRITICAL;
     const requiresApproval = isExplicitApprovalRequired || isCriticalRisk;
-    const isApproved = Boolean(context.hasApproval);
-    if (requiresApproval && !isApproved) {
+    if (requiresApproval && !grant.valid) {
       if (this.approvals) {
         this.approvals.requestApproval({
           action: toolName,
           description: `Execution of high-risk tool '${toolName}'`,
-          metadata: { requestId, args: redactArgs(args), risk_level: toolRequest.risk_level }
+          requestId,
+          canonicalHash,
+          riskLevel: toolRequest.risk_level
         });
       }
       const toolError = createToolError({
@@ -187,6 +206,9 @@ export class ExecutionGateway {
         durationMs: Date.now() - startMs,
         error: toolError
       });
+    }
+    if (grant.valid && this.approvals && typeof this.approvals.consumeGrant === 'function') {
+      this.approvals.consumeGrant(grant.request.id);
     }
 
     if (this.events) {

@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { ALLOWED_WRITE_PHASES, WRITE_TOOLS } from './lifecycle.js';
+import { resolveWithinRoot } from './paths.js';
 
 export const HARD_SECURITY_POLICIES = Object.freeze({
   P1_FORCE_PUSH_DENIED: 'P1_FORCE_PUSH_DENIED',
@@ -118,6 +119,18 @@ export class PolicyEngine {
       }
     }
 
+    if (cfg.workspace) {
+      if (cfg.workspace.follow_symlinks !== undefined && typeof cfg.workspace.follow_symlinks !== 'boolean') {
+        return { valid: false, error: "'workspace.follow_symlinks' must be a boolean", config: null };
+      }
+      if (cfg.workspace.symlink_allowlist !== undefined) {
+        const allowlist = cfg.workspace.symlink_allowlist;
+        if (!Array.isArray(allowlist) || allowlist.some(e => typeof e !== 'string')) {
+          return { valid: false, error: "'workspace.symlink_allowlist' must be an array of strings", config: null };
+        }
+      }
+    }
+
     return { valid: true, error: null, config: cfg };
   }
 
@@ -193,9 +206,12 @@ export class PolicyEngine {
 
     const filePath = args.path || args.TargetPath || args.TargetFile || args.AbsolutePath || args.SearchPath || null;
     if (filePath && typeof filePath === 'string') {
-      const resolved = path.resolve(this.rootDir, filePath);
+      const boundary = resolveWithinRoot(this.rootDir, filePath, {
+        followSymlinks: this.config?.workspace?.follow_symlinks === true,
+        symlinkAllowlist: this.config?.workspace?.symlink_allowlist || []
+      });
 
-      if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
+      if (!boundary.allowed) {
         return {
           allowed: false,
           reason: `Path '${filePath}' escapes workspace root boundary (Hard Policy P2).`,
@@ -203,6 +219,7 @@ export class PolicyEngine {
         };
       }
 
+      const resolved = path.resolve(this.rootDir, filePath);
       const baseName = path.basename(resolved);
       for (const pattern of HARD_DENIED_PATTERNS) {
         if (pattern.test(baseName) || pattern.test(filePath)) {

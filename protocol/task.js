@@ -164,12 +164,10 @@ export function approveTask(taskId, approvalId, decision = {}, store = defaultTa
     throw err;
   }
 
-  if (session.approvals && typeof session.approvals.approve === 'function') {
-    session.approvals.approve(targetApprovalId, decision);
-  }
-  session.state.pendingApproval = null;
-  session.state.save();
-
+  const approved = decision.approved !== false;
+  const resolvedBy = decision.resolvedBy || decision.resolved_by || null;
+  const reason = decision.reason || decision.comment || '';
+  session.decideApproval(targetApprovalId, approved, reason, resolvedBy);
   record.status = TASK_STATUS.RUNNING;
   record.phase = session.getPhase();
   record.pendingApproval = null;

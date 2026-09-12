@@ -51,7 +51,10 @@ export class McpTransport {
           type: 'object',
           properties: {
             taskId: { type: 'string', description: 'Task ID with pending approval' },
-            approvalId: { type: 'string', description: 'Optional specific approval ID' }
+            approvalId: { type: 'string', description: 'Optional specific approval ID' },
+            approved: { type: 'boolean', description: 'True to approve, false to reject' },
+            resolved_by: { type: 'string', description: 'Identity of the human/system resolving the approval (required)' },
+            reason: { type: 'string', description: 'Optional resolution reason' }
           },
           required: ['taskId']
         }
@@ -102,7 +105,7 @@ export class McpTransport {
           },
           serverInfo: {
             name: 'praetor',
-            version: '0.2.0'
+            version: '0.3.0'
           }
         }
       };
@@ -185,7 +188,11 @@ export class McpTransport {
               err.category = 'VALIDATION_FAILED';
               throw err;
             }
-            resultPayload = approveTask(args.taskId.trim(), args.approvalId);
+            resultPayload = approveTask(args.taskId.trim(), args.approvalId, {
+              approved: args.approved !== false,
+              resolvedBy: args.resolved_by || args.resolvedBy || 'mcp-client',
+              reason: args.reason || ''
+            });
             break;
           }
 

@@ -33,7 +33,7 @@ const scenarios = [
       );
       trace.push(`approval_requested:${approval.approval_id}`);
 
-      session.decideApproval(approval.approval_id, 'granted', 'Approved by database architect');
+      session.decideApproval(approval.approval_id, true, 'Approved by database architect', 'database-architect');
       trace.push(`approval_decided:${approval.approval_id}:granted`);
 
       session.transition('EXECUTE');
