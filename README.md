@@ -1,9 +1,9 @@
 # Praetor
 
-> **Praetor v0.4.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
+> **Praetor v0.5.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
 > Formal 8-Phase Lifecycle FSM • Dual-Layer Security Policy • Anti-TOCTOU Argument Integrity • Cryptographic State Sealing • PowerShell De-obfuscation • Host Interceptors & MCP • 35-Scenario Benchmark Harness
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](package.json)
 [![CI Standard](https://img.shields.io/badge/CI-Zero%20Regressions-brightgreen.svg)]()
 [![Audit](https://img.shields.io/badge/Audit-30%2F30%20Passed-brightgreen.svg)]()
 [![Hardening](https://img.shields.io/badge/Hardening-HRD--01..06%20Passed-brightgreen.svg)]()
@@ -258,45 +258,60 @@ console.log(`Attached skill: ${rustSkill.name}`);
 
 Praetor integrates seamlessly with external AI IDEs and host environments via standard protocols.
 
-### 1. Google Antigravity & Claude Code (`PreToolUse` Hook)
+### 1. Google Antigravity (`PreToolUse` Hook + MCP)
 
-Praetor acts as a synchronous IPC filter on stdin/stdout. Add to `.agents/hooks.json`:
+Praetor installs as a workspace customization under `.agents/`:
+
+- `.agents/hooks.json` gates every tool call before execution.
+- `.agents/mcp_config.json` exposes the governed task API to the agent.
+- `.agents/praetor-hook.js` is a thin bridge (zero policies) that calls the runtime.
 
 ```json
 {
-  "$schema": "https://json.schemastore.org/partial-agent-hooks.json",
-  "hooks": {
+  "praetor-governance": {
+    "enabled": true,
     "PreToolUse": [
-      {
-        "matcher": ".*",
-        "command": "bun run runtime/hosts/antigravity.js"
-      }
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "bun .agents/praetor-hook.js", "timeout": 10 } ] }
     ]
   }
 }
 ```
 
-When the IDE proposes a tool call, Praetor intercepts it, applies argument canonicalization, evaluates policy, and returns:
+The hook receives the tool call on stdin and returns:
+
 ```json
-{
-  "decision": "deny",
-  "code": "P1_FORCE_PUSH_DENIED",
-  "reason": "git push --force is strictly forbidden by immutable security policy (Hard Policy P1)."
-}
+{ "decision": "deny", "code": "P1_FORCE_PUSH_DENIED", "reason": "git push --force is forbidden (Hard Policy P1)." }
 ```
 
 ### 2. Model Context Protocol (MCP)
 
-Run Praetor as a standard MCP stdio server:
-
 ```bash
-bun run runtime/hosts/mcp.js
+bun bin/praetor.js mcp
 ```
 
-Exposes standard MCP tools:
-- `praetor_evaluate_action`: Pre-evaluates actions against the governance engine.
-- `praetor_get_phase`: Returns the current session lifecycle phase.
-- `praetor_transition_phase`: Advances the session lifecycle FSM.
+Exposes the governed task API: `create_task`, `execute_task`, `get_task`, `approve_task`, `cancel_task`, `resume_task` (legacy `praetor_*` aliases included).
+
+### 3. Zero-config auto-load (project-scoped)
+
+When you open a directory that contains Praetor, the host auto-loads the integration — no manual wiring:
+
+- **OpenCode**: `opencode.json` registers the `praetor` MCP server; `.opencode/plugin/praetor.js` hard-blocks tools via `tool.execute.before`; a `/praetor` command and instructions direct the agent to `execute_task`.
+- **Antigravity**: `.agents/hooks.json` + `.agents/mcp_config.json` are auto-scanned from the workspace.
+
+Install or refresh both from inside a project:
+
+```bash
+bun run agents:self-setup                 # installs antigravity + opencode
+praetor verify . --host opencode          # probes the wiring
+praetor doctor .                          # validates host schemas + session integrity
+```
+
+> Host config is read at startup: **restart the host** after installing or changing it.
+
+### 4. Provider model
+
+The **real provider is the host's own model** (OpenCode / Antigravity). Praetor does not call an external LLM: it exposes governed tools over MCP and gates the host's tool calls through the plugin/hook. `PilotProviderAdapter` is a scripted adapter used only by the evaluation harness.
+
 
 ---
 
@@ -440,11 +455,15 @@ praetor setup --host mcp [targetPath]
 ```
 
 When targeting **Antigravity**:
-1. Creates `.agents/` directory if missing.
-2. Installs the thin Antigravity bridge at `.agents/praetor-hook.js`.
-3. Configures `.agents/hooks.json` with the `PreToolUse` declaration.
-4. Generates a baseline `runtime.config.json` (if not already present).
-5. Runs automated verification probes.
+1. Creates `.agents/` if missing and installs the thin bridge at `.agents/praetor-hook.js`.
+2. Writes `.agents/hooks.json` (official schema) with the `PreToolUse` declaration.
+3. Writes `.agents/mcp_config.json` exposing the `praetor` MCP server.
+4. Generates a baseline `runtime.config.json` (if absent) and runs verification probes.
+
+When targeting **OpenCode**:
+1. Writes `opencode.json` with the `mcp.praetor` entry and instructions.
+2. Installs the auto-discovered governance plugin at `.opencode/plugin/praetor.js`.
+3. Adds the `/praetor` command and `.opencode/instructions.md`.
 
 When targeting **MCP**:
 1. Configures `mcp.json` with the `praetor mcp` server entry.
@@ -493,6 +512,15 @@ praetor hook
 
 # MCP direct stdio server
 praetor mcp
+
+# Validate host schemas + session integrity
+praetor doctor [targetPath]
+
+# Re-seal legacy (v1) sessions to v2 and quarantine invalid ones
+praetor migrate [targetPath] [--dry-run]
+
+# Verify a session's seal, event chain and FSM trace
+praetor audit verify <sessionId> [targetPath]
 ```
 
 ---

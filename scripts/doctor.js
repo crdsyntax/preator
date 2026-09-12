@@ -66,11 +66,54 @@ export function runDoctor(targetDir = process.cwd(), { key = undefined, keyPath 
       ? 'No seal key; only legacy (v1) sessions present (set PRAETOR_STATE_SECRET to seal at v2)'
       : 'No seal key but v2 sealed sessions exist (cannot verify)'));
 
-  const hooksPath = path.join(targetDir, '.agents', 'hooks.json');
-  add('host-hook', true, fs.existsSync(hooksPath)
-    ? 'Antigravity host hook declared'
-    : 'No host hook declared (optional)');
+  const hostIssues = [];
+  const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, ''));
+
+  const agHooks = path.join(targetDir, '.agents', 'hooks.json');
+  const agMcp = path.join(targetDir, '.agents', 'mcp_config.json');
+  const agHookScript = path.join(targetDir, '.agents', 'praetor-hook.js');
+  const agPresent = fs.existsSync(agHooks) || fs.existsSync(agMcp) || fs.existsSync(agHookScript);
+  if (agPresent) {
+    try {
+      if (!fs.existsSync(agHooks)) {
+        hostIssues.push('antigravity: missing .agents/hooks.json');
+      } else {
+        const hooks = readJson(agHooks);
+        const hasHandler = Object.values(hooks).some(entry =>
+          entry && typeof entry === 'object' && Array.isArray(entry.PreToolUse) &&
+          entry.PreToolUse.some(e => e && Array.isArray(e.hooks) &&
+            e.hooks.some(h => typeof h.command === 'string' && h.command.includes('praetor')))
+        );
+        if (!hasHandler) hostIssues.push('antigravity: hooks.json has no Praetor PreToolUse handler');
+      }
+      if (!fs.existsSync(agHookScript)) hostIssues.push('antigravity: missing .agents/praetor-hook.js');
+      if (!fs.existsSync(agMcp)) hostIssues.push('antigravity: missing .agents/mcp_config.json');
+      else if (!readJson(agMcp).mcpServers?.praetor) hostIssues.push('antigravity: mcp_config.json missing praetor server');
+    } catch (err) {
+      hostIssues.push(`antigravity: ${err.message}`);
+    }
+  }
+
+  const ocRoot = path.join(targetDir, 'opencode.json');
+  const ocDot = path.join(targetDir, '.opencode', 'opencode.json');
+  const ocActive = fs.existsSync(ocRoot) ? ocRoot : (fs.existsSync(ocDot) ? ocDot : null);
+  const ocPlugin = path.join(targetDir, '.opencode', 'plugin', 'praetor.js');
+  const ocPresent = Boolean(ocActive) || fs.existsSync(ocPlugin);
+  if (ocPresent) {
+    try {
+      if (!ocActive) hostIssues.push('opencode: missing opencode.json');
+      else if (!readJson(ocActive).mcp?.praetor) hostIssues.push('opencode: opencode.json missing mcp.praetor');
+      if (!fs.existsSync(ocPlugin)) hostIssues.push('opencode: missing .opencode/plugin/praetor.js');
+    } catch (err) {
+      hostIssues.push(`opencode: ${err.message}`);
+    }
+  }
+
+  const hostsDetected = [agPresent ? 'antigravity' : null, ocPresent ? 'opencode' : null].filter(Boolean);
+  add('hosts', hostIssues.length === 0, hostIssues.length === 0
+    ? (hostsDetected.length ? `Host integration valid: ${hostsDetected.join(', ')}` : 'No host integration detected (optional)')
+    : hostIssues.join('; '));
 
   const healthy = checks.every(c => c.ok);
-  return { target: targetDir, healthy, checks, sessions: { v1, v2, invalid, missing } };
+  return { target: targetDir, healthy, checks, sessions: { v1, v2, invalid, missing }, hosts: hostsDetected, hostIssues };
 }

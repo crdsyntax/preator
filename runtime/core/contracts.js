@@ -202,7 +202,7 @@ export function canonicalizeToolArgs(toolName, rawArgs = {}) {
   const readTools = new Set(['read', 'view_file', 'read_url_content', 'list_dir', 'grep_search']);
 
   if (writeTools.has(toolName)) {
-    canonical.path = String(args.path || args.TargetFile || args.target || args.file || '').replace(/\\/g, '/');
+    canonical.path = String(args.path || args.TargetFile || args.target || args.file || args.filePath || '').replace(/\\/g, '/');
     canonical.content = args.content !== undefined
       ? String(args.content)
       : (args.ReplacementContent !== undefined ? String(args.ReplacementContent) : (args.CodeContent !== undefined ? String(args.CodeContent) : ''));
@@ -212,7 +212,7 @@ export function canonicalizeToolArgs(toolName, rawArgs = {}) {
     canonical.command = String(args.command || args.CommandLine || args.cmd || '');
     if (args.Cwd || args.cwd) canonical.cwd = String(args.cwd || args.Cwd).replace(/\\/g, '/');
   } else if (readTools.has(toolName)) {
-    canonical.path = String(args.path || args.AbsolutePath || args.SearchPath || args.DirectoryPath || args.target || args.Url || '').replace(/\\/g, '/');
+    canonical.path = String(args.path || args.AbsolutePath || args.SearchPath || args.DirectoryPath || args.target || args.Url || args.filePath || '').replace(/\\/g, '/');
     if (args.Query !== undefined) canonical.query = String(args.Query);
   } else {
     for (const k of Object.keys(args).sort()) {

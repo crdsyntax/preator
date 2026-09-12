@@ -28,7 +28,8 @@ export class AntigravityHostAdapter extends BaseHostAdapter {
   }
 
   setup(targetDir, options = {}) {
-    const agentsDir = path.join(targetDir, ".agents");
+    const rootDir = path.resolve(targetDir);
+    const agentsDir = path.join(rootDir, ".agents");
     if (!fs.existsSync(agentsDir)) {
       fs.mkdirSync(agentsDir, { recursive: true });
     }
@@ -45,64 +46,117 @@ export class AntigravityHostAdapter extends BaseHostAdapter {
       fs.writeFileSync(hookDest, hookCode, "utf8");
     }
 
+    // Official hooks.json schema: { "<hook-name>": { enabled, PreToolUse: [ { matcher, hooks: [ { type, command, timeout } ] } ] } }
     const hooksJsonPath = path.join(agentsDir, "hooks.json");
-    let hooksConfig = {
-      $schema: "https://raw.githubusercontent.com/google/antigravity/main/schemas/hooks.schema.json",
-      version: "1.0",
-      hooks: {
-        PreToolUse: []
-      }
-    };
-
+    let hooksConfig = {};
     if (fs.existsSync(hooksJsonPath)) {
       try {
-        const existing = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
-        hooksConfig = { ...hooksConfig, ...existing };
-        if (!hooksConfig.hooks) hooksConfig.hooks = {};
-        if (!Array.isArray(hooksConfig.hooks.PreToolUse)) hooksConfig.hooks.PreToolUse = [];
+        const existing = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8").replace(/^\uFEFF/, ""));
+        if (existing && typeof existing === "object" && !Array.isArray(existing)) {
+          hooksConfig = existing;
+        }
       } catch {}
     }
 
-    const hookCommand = "bun .agents/praetor-hook.js";
-    const existingIdx = hooksConfig.hooks.PreToolUse.findIndex(h =>
-      h.command && (h.command.includes("praetor") || h.command.includes("antigravity"))
-    );
-
-    const hookEntry = {
-      matcher: "*",
-      command: hookCommand,
-      timeout: 10
+    hooksConfig["praetor-governance"] = {
+      enabled: true,
+      PreToolUse: [
+        {
+          matcher: "*",
+          hooks: [
+            {
+              type: "command",
+              command: "bun .agents/praetor-hook.js",
+              timeout: 10
+            }
+          ]
+        }
+      ]
     };
 
-    if (existingIdx !== -1) {
-      hooksConfig.hooks.PreToolUse[existingIdx] = hookEntry;
-    } else {
-      hooksConfig.hooks.PreToolUse.push(hookEntry);
+    fs.writeFileSync(hooksJsonPath, JSON.stringify(hooksConfig, null, 2), "utf8");
+
+    // Official mcp_config.json schema: { "mcpServers": { "<name>": { command, args, cwd, env } } }
+    const mcpConfigPath = path.join(agentsDir, "mcp_config.json");
+    let mcpConfig = { mcpServers: {} };
+    if (fs.existsSync(mcpConfigPath)) {
+      try {
+        const existing = JSON.parse(fs.readFileSync(mcpConfigPath, "utf8"));
+        if (existing && typeof existing === "object") {
+          mcpConfig = existing;
+        }
+      } catch {}
+    }
+    if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
+      mcpConfig.mcpServers = {};
     }
 
-    fs.writeFileSync(hooksJsonPath, JSON.stringify(hooksConfig, null, 2), "utf8");
+    const cliPath = path.join(PRAETOR_ROOT, "bin", "praetor.js").replace(/\\/g, "/");
+    mcpConfig.mcpServers.praetor = {
+      command: "bun",
+      args: [cliPath, "mcp"],
+      cwd: rootDir.replace(/\\/g, "/"),
+      env: { PRAETOR_HOME: PRAETOR_ROOT.replace(/\\/g, "/") }
+    };
+
+    fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), "utf8");
 
     return {
       success: true,
       host: "antigravity",
       hookPath: hookDest,
-      hooksJsonPath
+      hooksJsonPath,
+      mcpConfigPath
     };
   }
 
   verify(targetDir) {
-    let hookScript = path.join(targetDir, ".agents", "praetor-hook.js");
-    if (!fs.existsSync(hookScript)) {
-      hookScript = path.join(targetDir, ".agents", "praetor-antigravity-hook.js");
-    }
-
+    const rootDir = path.resolve(targetDir);
+    const hookScript = path.join(rootDir, ".agents", "praetor-hook.js");
     if (!fs.existsSync(hookScript)) {
       throw new Error(`Antigravity hook script not found: ${hookScript}`);
     }
 
+    const hooksJsonPath = path.join(rootDir, ".agents", "hooks.json");
+    if (!fs.existsSync(hooksJsonPath)) {
+      throw new Error(`Antigravity hooks.json not found: ${hooksJsonPath}`);
+    }
+
+    let hooksConfig;
+    try {
+      hooksConfig = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8").replace(/^\uFEFF/, ""));
+    } catch (err) {
+      throw new Error(`Invalid hooks.json: ${err.message}`);
+    }
+
+    const hasPreToolUse = Object.values(hooksConfig).some(entry =>
+      entry && typeof entry === "object" && Array.isArray(entry.PreToolUse) &&
+      entry.PreToolUse.some(e =>
+        e && Array.isArray(e.hooks) &&
+        e.hooks.some(h => typeof h.command === "string" && h.command.includes("praetor"))
+      )
+    );
+    if (!hasPreToolUse) {
+      throw new Error("hooks.json has no PreToolUse handler invoking the Praetor hook");
+    }
+
+    const mcpConfigPath = path.join(rootDir, ".agents", "mcp_config.json");
+    if (!fs.existsSync(mcpConfigPath)) {
+      throw new Error(`Antigravity mcp_config.json not found: ${mcpConfigPath}`);
+    }
+    let mcpConfig;
+    try {
+      mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, "utf8").replace(/^\uFEFF/, ""));
+    } catch (err) {
+      throw new Error(`Invalid mcp_config.json: ${err.message}`);
+    }
+    if (!mcpConfig.mcpServers?.praetor) {
+      throw new Error("mcp_config.json is missing the 'praetor' MCP server entry");
+    }
+
     function probe(payload) {
       const res = spawnSync("bun", [hookScript], {
-        cwd: targetDir,
+        cwd: rootDir,
         input: JSON.stringify(payload) + "\n",
         encoding: "utf8"
       });
@@ -127,7 +181,7 @@ export class AntigravityHostAdapter extends BaseHostAdapter {
     }
 
     const emptyRes = spawnSync("bun", [hookScript], {
-      cwd: targetDir,
+      cwd: rootDir,
       input: "\n",
       encoding: "utf8"
     });
@@ -136,7 +190,7 @@ export class AntigravityHostAdapter extends BaseHostAdapter {
       throw new Error(`Probe empty stdin failed to fail-closed`);
     }
 
-    return { success: true, host: "antigravity" };
+    return { success: true, host: "antigravity", hooksJsonPath, mcpConfigPath };
   }
 
   interceptToolCall(hostInvocation, session) {

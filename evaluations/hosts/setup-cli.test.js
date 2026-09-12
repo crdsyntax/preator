@@ -65,8 +65,23 @@ async function runCliTests() {
 
     const hookPath = path.join(tempDir, ".agents", "praetor-hook.js");
     const hooksJsonPath = path.join(tempDir, ".agents", "hooks.json");
+    const mcpConfigPath = path.join(tempDir, ".agents", "mcp_config.json");
     assert(fs.existsSync(hookPath), "Generated Antigravity hook at .agents/praetor-hook.js");
     assert(fs.existsSync(hooksJsonPath), "Generated .agents/hooks.json");
+    assert(fs.existsSync(mcpConfigPath), "Generated .agents/mcp_config.json");
+
+    const hooksConfig = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
+    const praetorHook = hooksConfig["praetor-governance"];
+    assert(
+      praetorHook && Array.isArray(praetorHook.PreToolUse) &&
+        praetorHook.PreToolUse[0]?.hooks?.[0]?.command?.includes("praetor"),
+      "hooks.json uses the official schema (hook-name -> PreToolUse -> hooks[])"
+    );
+    const mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, "utf8"));
+    assert(
+      mcpConfig.mcpServers?.praetor?.args?.includes("mcp"),
+      "mcp_config.json declares the Praetor MCP server"
+    );
 
     function sendHook(payload) {
       const res = spawnSync("bun", [hookPath], {

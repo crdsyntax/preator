@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "praetor": {
+      "command": "bun",
+      "args": [
+        "D:/Documents/GitHub/praetor/bin/praetor.js",
+        "mcp"
+      ],
+      "cwd": "D:/Documents/GitHub/praetor",
+      "env": {
+        "PRAETOR_HOME": "D:/Documents/GitHub/praetor"
+      }
+    }
+  }
+}

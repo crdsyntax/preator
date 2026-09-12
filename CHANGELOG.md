@@ -2,6 +2,23 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-09-12
+
+Auto-load release: project-scoped host integration with hard enforcement for OpenCode, corrected Antigravity hook schema and MCP exposure.
+
+### Added
+- OpenCode auto-load: `opencode.json` MCP entry, auto-discovered `.opencode/plugin/praetor.js` (hard `tool.execute.before` gate), `/praetor` command and instructions; core evaluator `runtime/hosts/opencode-plugin-core.js`.
+- Antigravity `.agents/mcp_config.json`; `praetor doctor` validates host integrations (schemas + MCP); `agents:self-setup` script installs both hosts.
+- Regression suites: AGT-01..03, OCP-01..03, DOC-01..02 (wired into `bun run test`).
+
+### Changed
+- `AntigravityHostAdapter.setup/verify` now emit/validate the official hooks schema (`hook-name -> PreToolUse -> [{matcher, hooks:[{type,command,timeout}]}]`) and are BOM-tolerant.
+- Canonicalization accepts `filePath` for OpenCode read/write tool arguments.
+- The repository self-installs `.agents/` and `.opencode/` for zero-config auto-load; the real provider is the host's own model via MCP/plugin.
+
+### Fixed
+- README host/MCP examples aligned with the real Antigravity and MCP protocols.
+
 ## [0.4.0] - 2026-09-12
 
 Reliability release: cross-process locking, first-class resume, real cancellation, audited FSM reset and session audit tooling. Backward compatible with 0.3.0 sessions.

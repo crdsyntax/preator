@@ -1,12 +1,13 @@
-﻿{
+{
   "praetor-governance": {
+    "enabled": true,
     "PreToolUse": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "if exist praetor-hook.js (bun praetor-hook.js) else (bun .agents/praetor-hook.js)",
+            "command": "bun .agents/praetor-hook.js",
             "timeout": 10
           }
         ]

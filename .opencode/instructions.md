@@ -1,0 +1,1 @@
+When a task is executed under Praetor governance or via /praetor, invoke praetor_execute_task with the goal, present the governed result, and stop without performing unguided tool calls or secondary reasoning.

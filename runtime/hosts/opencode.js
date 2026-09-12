@@ -7,6 +7,7 @@ import { HostDriver } from './driver.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PRAETOR_ROOT = path.resolve(__dirname, "../..");
+const OPENCODE_PLUGIN_TEMPLATE_PATH = path.join(PRAETOR_ROOT, "runtime", "hosts", "templates", "opencode-plugin.js");
 
 export class OpenCodeHostAdapter extends BaseHostAdapter {
   constructor({ driver = null } = {}) {
@@ -79,11 +80,24 @@ $ARGUMENTS
 `;
     fs.writeFileSync(commandMdPath, commandContent, "utf8");
 
+    if (!fs.existsSync(OPENCODE_PLUGIN_TEMPLATE_PATH)) {
+      throw new Error(`OpenCode plugin template not found: ${OPENCODE_PLUGIN_TEMPLATE_PATH}`);
+    }
+    const pluginDir = path.join(dotOpenCode, "plugin");
+    if (!fs.existsSync(pluginDir)) {
+      fs.mkdirSync(pluginDir, { recursive: true });
+    }
+    const pluginPath = path.join(pluginDir, "praetor.js");
+    let pluginCode = fs.readFileSync(OPENCODE_PLUGIN_TEMPLATE_PATH, "utf8");
+    pluginCode = pluginCode.replace("{{PRAETOR_RUNTIME_ROOT}}", PRAETOR_ROOT.replace(/\\/g, "/"));
+    fs.writeFileSync(pluginPath, pluginCode, "utf8");
+
     return {
       success: true,
       host: "opencode",
       configPath: dotConfigPath,
-      commandPath: commandMdPath
+      commandPath: commandMdPath,
+      pluginPath
     };
   }
 
@@ -106,7 +120,12 @@ $ARGUMENTS
       throw new Error(`OpenCode command template not found: ${commandMdPath}`);
     }
 
-    return { success: true, host: "opencode", configPath: activePath, commandPath: commandMdPath };
+    const pluginPath = path.join(targetDir, ".opencode", "plugin", "praetor.js");
+    if (!fs.existsSync(pluginPath)) {
+      throw new Error(`OpenCode governance plugin not found: ${pluginPath}`);
+    }
+
+    return { success: true, host: "opencode", configPath: activePath, commandPath: commandMdPath, pluginPath };
   }
 
   interceptToolCall(hostInvocation, session) {
