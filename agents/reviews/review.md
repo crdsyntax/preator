@@ -10,6 +10,10 @@ tools:
   - grep_search
 can_delegate: false
 delegation_targets: []
+skills:
+  - code-review
+  - code-conventions
+  - development-standard
 ---
 
 # Role: Code Reviewer

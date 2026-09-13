@@ -18,6 +18,10 @@ tools:
   - bash
 can_delegate: false
 delegation_targets: []
+skills:
+  - backend-engineering
+  - code-conventions
+  - git-workflow
 ---
 
 # Role: Backend Engineer

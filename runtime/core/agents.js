@@ -38,6 +38,9 @@ export function validateAgentDefinition(def) {
   if (!Array.isArray(capabilities.delegation_targets)) {
     return { valid: false, error: "'capabilities.delegation_targets' must be an array" };
   }
+  if (capabilities.skills !== undefined && !Array.isArray(capabilities.skills)) {
+    return { valid: false, error: "'capabilities.skills' must be an array when present" };
+  }
 
   return { valid: true, error: null };
 }
@@ -59,7 +62,8 @@ export function createAgentDefinition({
   const safeCapabilities = {
     tools: Array.isArray(capabilities?.tools) ? [...capabilities.tools] : [],
     can_delegate: Boolean(capabilities?.can_delegate),
-    delegation_targets: Array.isArray(capabilities?.delegation_targets) ? [...capabilities.delegation_targets] : []
+    delegation_targets: Array.isArray(capabilities?.delegation_targets) ? [...capabilities.delegation_targets] : [],
+    skills: Array.isArray(capabilities?.skills) ? [...capabilities.skills] : []
   };
 
   const def = {
@@ -169,6 +173,9 @@ export function parseMarkdownAgent(content, filename = 'agent.md') {
   const declaredTargets = frontmatter.delegation_targets || frontmatter.allowed_delegations;
   const delegationTargets = Array.isArray(declaredTargets) ? declaredTargets : [];
 
+  const declaredSkills = frontmatter.skills;
+  const skills = Array.isArray(declaredSkills) ? declaredSkills : [];
+
   return createAgentDefinition({
     identity: {
       id: agentId,
@@ -180,7 +187,8 @@ export function parseMarkdownAgent(content, filename = 'agent.md') {
     capabilities: {
       tools,
       can_delegate: canDelegate,
-      delegation_targets: delegationTargets
+      delegation_targets: delegationTargets,
+      skills
     },
     constraints: Array.isArray(frontmatter.constraints) ? frontmatter.constraints : [],
     instructions: body

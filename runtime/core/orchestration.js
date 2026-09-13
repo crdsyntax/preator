@@ -11,12 +11,14 @@ export class OrchestratorEngine {
     maxDepth = 3,
     maxIterations = 3,
     maxConcurrency = 4,
+    maxCorrections = 1,
     authorizedAgents = null,
     events = null
   } = {}) {
     this.maxDepth = maxDepth;
     this.maxIterations = maxIterations;
     this.maxConcurrency = maxConcurrency;
+    this.maxCorrections = maxCorrections;
     this.events = events;
 
     this.activeDelegations = new Map();
@@ -163,7 +165,7 @@ export class OrchestratorEngine {
     return { allowed: true, error: null };
   }
 
-  async delegate(delegationRequest, childExecutorFn, sessionFactoryFn = null) {
+  async delegate(delegationRequest, childExecutorFn, sessionFactoryFn = null, options = {}) {
     const startMs = Date.now();
     const { delegation_id, parent_run_id, child_run_id, parent_agent_id, child_agent_id, depth, task } = delegationRequest;
 
@@ -197,7 +199,7 @@ export class OrchestratorEngine {
     this.iterationCounts.set(iterKey, (this.iterationCounts.get(iterKey) || 0) + 1);
 
     const taskId = task.id || `task-${Date.now()}`;
-    const taskOwnership = createTaskOwnership({
+    let taskOwnership = createTaskOwnership({
       taskId,
       ownerAgentId: child_agent_id,
       parentTaskId: task.parentTaskId || null,
@@ -217,85 +219,200 @@ export class OrchestratorEngine {
       });
     }
 
-    try {
-      let childSession = null;
-      if (typeof sessionFactoryFn === 'function') {
-        childSession = sessionFactoryFn({
-          sessionId: child_run_id,
-          agentId: child_agent_id,
-          context: {
-            parent_run_id,
-            delegation_id,
-            depth,
-            task_id: taskId
-          }
-        });
+    const verify = typeof options.verify === 'function' ? options.verify : null;
+    const maxCorrections = Number.isInteger(options.maxCorrections) ? Math.max(0, options.maxCorrections) : this.maxCorrections;
+    const escalationExecutorFn = typeof options.escalationExecutorFn === 'function' ? options.escalationExecutorFn : null;
+    const totalAttempts = maxCorrections + 1;
+    const alerts = [];
+
+    const runVerification = (output) => {
+      if (!verify) return { valid: true };
+      try {
+        return verify(output, delegationRequest) || { valid: true };
+      } catch (err) {
+        return { valid: false, reason: err.message };
       }
+    };
 
-      const output = await childExecutorFn(childSession, delegationRequest);
-      const durationMs = Date.now() - startMs;
-
-      this.activeDelegations.delete(delegation_id);
-      taskOwnership.status = 'COMPLETED';
-
+    const emitAlert = (alert) => {
+      alerts.push(alert);
       if (this.events) {
-        this.events.append('delegation.completed', {
-          delegation_id,
-          parent_run_id,
-          child_run_id,
-          child_agent_id,
-          duration_ms: durationMs,
-          status: 'ok'
-        });
-      }
-
-      return createDelegationResult({
-        delegationId: delegation_id,
-        childRunId: child_run_id,
-        status: DELEGATION_STATUS.COMPLETED,
-        output,
-        durationMs
-      });
-    } catch (err) {
-      const durationMs = Date.now() - startMs;
-      this.activeDelegations.delete(delegation_id);
-
-      taskOwnership.status = 'REVOKED';
-      taskOwnership.revoked_to = parent_agent_id;
-      taskOwnership.revoked_at = new Date().toISOString();
-
-      const revokedOwnership = createTaskOwnership({
-        taskId,
-        ownerAgentId: parent_agent_id,
-        parentTaskId: task.parentTaskId || null,
-        description: task.description || '',
-        status: 'ASSIGNED'
-      });
-      this.taskOwnerships.set(taskId, revokedOwnership);
-
-      if (this.events) {
-        this.events.append('delegation.revoked', {
+        this.events.append('delegation.alert', {
           delegation_id,
           parent_run_id,
           child_run_id,
           child_agent_id,
           parent_agent_id,
           task_id: taskId,
-          reason: err.message,
-          duration_ms: durationMs
+          ...alert
         });
       }
+      if (typeof options.onAlert === 'function') {
+        try { options.onAlert(alert); } catch {}
+      }
+    };
 
-      return createDelegationResult({
-        delegationId: delegation_id,
-        childRunId: child_run_id,
-        status: DELEGATION_STATUS.REVOKED,
-        error: { code: 'EXECUTION_FAILED', message: err.message },
-        revokedFrom: child_agent_id,
-        revokedTo: parent_agent_id,
-        durationMs
+    let childSession = null;
+    if (typeof sessionFactoryFn === 'function') {
+      childSession = sessionFactoryFn({
+        sessionId: child_run_id,
+        agentId: child_agent_id,
+        context: { parent_run_id, delegation_id, depth, task_id: taskId }
       });
     }
+
+    let lastOutput = null;
+    let lastReason = null;
+    let attempt = 0;
+
+    while (attempt < totalAttempts) {
+      attempt++;
+      try {
+        const output = await childExecutorFn(childSession, delegationRequest, { attempt });
+        const check = runVerification(output);
+        if (check.valid) {
+          this.activeDelegations.delete(delegation_id);
+          taskOwnership.status = 'COMPLETED';
+          if (this.events) {
+            this.events.append('delegation.completed', {
+              delegation_id,
+              parent_run_id,
+              child_run_id,
+              child_agent_id,
+              duration_ms: Date.now() - startMs,
+              status: 'ok',
+              attempts: attempt
+            });
+          }
+          return createDelegationResult({
+            delegationId: delegation_id,
+            childRunId: child_run_id,
+            status: DELEGATION_STATUS.COMPLETED,
+            output,
+            durationMs: Date.now() - startMs,
+            attempts: attempt,
+            alerts
+          });
+        }
+        lastOutput = output;
+        lastReason = check.reason || 'Output failed verification';
+      } catch (err) {
+        lastReason = err.message;
+      }
+
+      if (attempt < totalAttempts) {
+        emitAlert({
+          code: 'DELEGATION_INCOMPLETE',
+          child_agent_id,
+          attempt,
+          reason: lastReason,
+          task_id: taskId,
+          final: false,
+          message: `Agent '${child_agent_id}' did not complete the task and must correct it.`
+        });
+      }
+    }
+
+    emitAlert({
+      code: 'DELEGATION_INCOMPLETE',
+      child_agent_id,
+      attempt,
+      reason: lastReason,
+      task_id: taskId,
+      final: true,
+      message: `Agent '${child_agent_id}' did not complete the task; escalating to the superior '${parent_agent_id}'.`
+    });
+
+    this.activeDelegations.delete(delegation_id);
+    const superior = parent_agent_id;
+    taskOwnership.status = 'REVOKED';
+    taskOwnership.revoked_to = superior;
+    taskOwnership.revoked_at = new Date().toISOString();
+    this.taskOwnerships.set(taskId, createTaskOwnership({
+      taskId,
+      ownerAgentId: superior,
+      parentTaskId: task.parentTaskId || null,
+      description: task.description || '',
+      status: 'ASSIGNED'
+    }));
+
+    if (this.events) {
+      this.events.append('delegation.revoked', {
+        delegation_id,
+        parent_run_id,
+        child_run_id,
+        child_agent_id,
+        parent_agent_id,
+        task_id: taskId,
+        reason: lastReason,
+        duration_ms: Date.now() - startMs,
+        attempts: attempt
+      });
+    }
+
+    if (escalationExecutorFn) {
+      try {
+        const escalatedOutput = await escalationExecutorFn(superior, delegationRequest, {
+          failedOutput: lastOutput,
+          error: lastReason,
+          attempts: attempt
+        });
+        const check = runVerification(escalatedOutput);
+        if (check.valid) {
+          if (this.events) {
+            this.events.append('delegation.escalated', {
+              delegation_id,
+              escalated_to: superior,
+              child_agent_id,
+              resolved: true,
+              attempts: attempt
+            });
+          }
+          const ownership = this.taskOwnerships.get(taskId);
+          if (ownership) ownership.status = 'COMPLETED';
+          return createDelegationResult({
+            delegationId: delegation_id,
+            childRunId: child_run_id,
+            status: DELEGATION_STATUS.COMPLETED,
+            output: escalatedOutput,
+            durationMs: Date.now() - startMs,
+            revokedFrom: child_agent_id,
+            revokedTo: superior,
+            escalatedTo: superior,
+            resolvedBy: superior,
+            attempts: attempt,
+            alerts
+          });
+        }
+        lastReason = check.reason || lastReason;
+      } catch (err) {
+        lastReason = err.message;
+      }
+    }
+
+    if (this.events) {
+      this.events.append('delegation.escalated', {
+        delegation_id,
+        escalated_to: superior,
+        child_agent_id,
+        resolved: false,
+        attempts: attempt
+      });
+    }
+
+    return createDelegationResult({
+      delegationId: delegation_id,
+      childRunId: child_run_id,
+      status: DELEGATION_STATUS.REVOKED,
+      error: { code: 'INCOMPLETE', message: lastReason || 'Output failed verification' },
+      revokedFrom: child_agent_id,
+      revokedTo: superior,
+      escalatedTo: superior,
+      needsCorrection: true,
+      attempts: attempt,
+      durationMs: Date.now() - startMs,
+      alerts
+    });
   }
 
   assertTaskOwnership(taskId, agentId) {

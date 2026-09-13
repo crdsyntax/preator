@@ -3,6 +3,7 @@ export const DELEGATION_STATUS = Object.freeze({
   ACTIVE: 'ACTIVE',
   COMPLETED: 'COMPLETED',
   FAILED: 'FAILED',
+  INCOMPLETE: 'INCOMPLETE',
   DENIED: 'DENIED',
   REVOKED: 'REVOKED'
 });
@@ -68,7 +69,12 @@ export function createDelegationResult({
   durationMs = 0,
   completedAt = null,
   revokedFrom = null,
-  revokedTo = null
+  revokedTo = null,
+  escalatedTo = null,
+  resolvedBy = null,
+  needsCorrection = false,
+  attempts = 0,
+  alerts = []
 }) {
   if (!delegationId) throw new Error("DelegationResult requires 'delegationId'");
   if (!DELEGATION_STATUS[status]) {
@@ -84,7 +90,12 @@ export function createDelegationResult({
     duration_ms: Math.max(0, durationMs),
     completed_at: completedAt || new Date().toISOString(),
     revoked_from: revokedFrom || null,
-    revoked_to: revokedTo || null
+    revoked_to: revokedTo || null,
+    escalated_to: escalatedTo || null,
+    resolved_by: resolvedBy || null,
+    needs_correction: Boolean(needsCorrection),
+    attempts: Number(attempts) || 0,
+    alerts: Array.isArray(alerts) ? alerts.map(a => ({ ...a })) : []
   });
 }
 

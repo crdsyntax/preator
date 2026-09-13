@@ -2,6 +2,21 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] - 2026-09-13
+
+Per-agent skills with declarative binding, and supervised delegation.
+
+### Added
+- One dedicated skill per agent: `orchestration`, `backend-engineering`, `frontend-engineering`, `database-engineering`, `qa-testing`, `code-review`, `security-devops`, `architecture`, `engineering-standards`, `security-standards`.
+- Agents declare `skills:` in frontmatter; `AgentCatalog` parses `capabilities.skills`; sessions auto-attach declared skills (respecting required tools).
+- **Supervised delegation**: `verify` hook on `OrchestratorEngine.delegate`; `delegation.alert` user alerts (`result.alerts` + `onAlert`); hot correction (`maxCorrections`); revocation and escalation to the nearest superior (`escalationExecutorFn`); unresolved delegations return `needs_correction` and block `COMPLETE`.
+- `DELEGATION_STATUS.INCOMPLETE`; result fields `attempts`, `escalated_to`, `resolved_by`, `needs_correction`, `alerts`.
+- Evaluation suites `evaluations/skills/binding.test.js` (SKB-01..03) and `evaluations/delegation/supervised.test.js` (SUP-01..03); SDD specs `specs/development-standard/` and `specs/supervised-delegation/`.
+
+### Changed
+- A session derives its `agentId` from the agent definition when none is provided.
+- `executeTask` no longer reports `completed` when a delegated task is unresolved (returns `needs_correction`).
+
 ## [0.9.1] - 2026-09-13
 
 ### Changed

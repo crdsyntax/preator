@@ -10,6 +10,9 @@ tools:
   - grep_search
 can_delegate: false
 delegation_targets: []
+skills:
+  - security-standards
+  - code-conventions
 ---
 
 # Role: Core Security Specialist

@@ -370,7 +370,11 @@ export class TaskExecutor {
               id: `subtask-${Date.now()}-${specialistId}`,
               description: `Subtask for specialist ${specialistId}: ${goal}`
             },
-            childExecutorFn: childExecutor
+            childExecutorFn: childExecutor,
+            verify: options.verify || null,
+            maxCorrections: options.maxCorrections,
+            escalationExecutorFn: options.escalationExecutorFn || null,
+            onAlert: options.onAlert || null
           });
 
           delegations.push(delegationResult);
@@ -381,6 +385,35 @@ export class TaskExecutor {
         const err = new Error('TASK_TIMEOUT: task aborted before completion');
         err.code = 'CANCELLED';
         throw err;
+      }
+
+      const unresolvedDelegations = delegations.filter(d => d.needs_correction || (d.status === 'REVOKED' && !d.resolved_by));
+      if (unresolvedDelegations.length > 0) {
+        const alerts = delegations.flatMap(d => d.alerts || []);
+        session.events.append('task.needs_correction', {
+          phase: session.getPhase(),
+          specialists: specialists.join(', '),
+          unresolved: unresolvedDelegations.length
+        });
+        return {
+          taskId: session.sessionId,
+          sessionId: session.sessionId,
+          phase: session.getPhase(),
+          goal,
+          status: 'needs_correction',
+          alerts,
+          revocations: unresolvedDelegations.map(r => ({
+            delegation_id: r.delegation_id,
+            child_run_id: r.child_run_id,
+            revoked_from: r.revoked_from,
+            revoked_to: r.revoked_to,
+            escalated_to: r.escalated_to
+          })),
+          summary: 'Uno o más especialistas no completaron la tarea. El usuario debe ser alertado y el agente debe corregir; si no se corrige en caliente, la tarea se escala al superior.',
+          audit_seal: session.state?.state_hash || null,
+          events_count: session.events?.events?.length || 0,
+          delegations
+        };
       }
 
       if (session.lifecycle.getPhase() === 'PLAN') {

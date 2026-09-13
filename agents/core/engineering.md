@@ -10,6 +10,10 @@ tools:
   - grep_search
 can_delegate: false
 delegation_targets: []
+skills:
+  - engineering-standards
+  - code-conventions
+  - development-standard
 ---
 
 # Role: Core Engineering Specialist

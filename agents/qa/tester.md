@@ -12,6 +12,9 @@ tools:
   - bash
 can_delegate: false
 delegation_targets: []
+skills:
+  - qa-testing
+  - development-standard
 ---
 
 # Role: QA Tester

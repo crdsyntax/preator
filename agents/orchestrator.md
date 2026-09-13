@@ -18,6 +18,10 @@ delegation_targets:
   - code-reviewer
   - security-devops
   - architect
+skills:
+  - orchestration
+  - development-standard
+  - git-workflow
 ---
 
 # Role: Universal Root Orchestrator

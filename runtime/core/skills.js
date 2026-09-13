@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { deepFreeze } from './contracts.js';
 import { parseFrontmatter } from './agents.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const FRAMEWORK_SKILLS_DIR = path.resolve(__dirname, '../../skills');
 
 export function validateSkillDefinition(def) {
   if (!def || typeof def !== 'object') {
@@ -150,4 +155,23 @@ export class SkillCatalog {
     }
     return loaded;
   }
+}
+
+let defaultSkillCatalogInstance = null;
+
+export function getDefaultSkillCatalog(skillsDir = null) {
+  if (defaultSkillCatalogInstance && !skillsDir) {
+    return defaultSkillCatalogInstance;
+  }
+  const catalog = new SkillCatalog();
+  if (fs.existsSync(FRAMEWORK_SKILLS_DIR)) {
+    catalog.loadFromDir(FRAMEWORK_SKILLS_DIR);
+  }
+  if (skillsDir && fs.existsSync(skillsDir) && skillsDir !== FRAMEWORK_SKILLS_DIR) {
+    catalog.loadFromDir(skillsDir);
+  }
+  if (!skillsDir) {
+    defaultSkillCatalogInstance = catalog;
+  }
+  return catalog;
 }

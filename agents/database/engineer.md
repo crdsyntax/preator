@@ -18,6 +18,10 @@ tools:
   - bash
 can_delegate: false
 delegation_targets: []
+skills:
+  - database-engineering
+  - database-sql
+  - code-conventions
 ---
 
 # Role: Database Engineer

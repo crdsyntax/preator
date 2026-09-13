@@ -41,7 +41,8 @@ import {
   validateSkillDefinition,
   loadSkillFromMarkdown,
   parseMarkdownSkill,
-  SkillCatalog
+  SkillCatalog,
+  getDefaultSkillCatalog
 } from './core/skills.js';
 import {
   ContextGovernance,
@@ -54,7 +55,7 @@ import {
 export class AgentSession {
   constructor({
     sessionId = null,
-    agentId = 'orchestrator',
+    agentId = null,
     goal = '',
     agentDefinition = null,
     initialPhase = 'REQUEST',
@@ -67,6 +68,8 @@ export class AgentSession {
     hydrate = false,
     emitStartEvent = true
   } = {}) {
+    const resolvedAgentId = agentId || (agentDefinition?.identity?.id) || 'orchestrator';
+
     let hydrated = false;
     if (hydrate && sessionId) {
       try {
@@ -80,7 +83,7 @@ export class AgentSession {
     if (!hydrated) {
       const initialState = {
         sessionId,
-        agentId,
+        agentId: resolvedAgentId,
         goal,
         context: {
           ...(context || {}),
@@ -108,6 +111,22 @@ export class AgentSession {
       key: this.state.sealKey,
       loadExisting: hydrated
     });
+
+    const declaredSkills = this._agentDefinition?.capabilities?.skills || [];
+    if (declaredSkills.length > 0) {
+      const skillCatalog = getDefaultSkillCatalog();
+      for (const skillId of declaredSkills) {
+        const skill = skillCatalog.get(skillId);
+        if (skill) {
+          try {
+            this.attachSkill(skill);
+          } catch {
+            // Skip skills whose required tools exceed the agent's capabilities.
+          }
+        }
+      }
+    }
+
     this.approvals = new ApprovalManager({
       onChange: (records) => {
         this.state.approvals = records;
@@ -401,7 +420,7 @@ export class AgentSession {
     return this.state.toJSON();
   }
 
-  async delegate({ childAgentId, task, childExecutorFn, depth = 0 }) {
+  async delegate({ childAgentId, task, childExecutorFn, depth = 0, verify = null, maxCorrections = undefined, escalationExecutorFn = null, onAlert = null }) {
     const delegationReq = createDelegationRequest({
       parentRunId: this.state.sessionId,
       parentAgentId: this.state.agentId,
@@ -422,7 +441,8 @@ export class AgentSession {
         agentCatalog: this.agentCatalog,
         sessionsRoot: this.state.sessionsRoot,
         workspaceRoot: this.workspaceRoot
-      })
+      }),
+      { verify, maxCorrections, escalationExecutorFn, onAlert }
     );
   }
 }

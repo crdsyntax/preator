@@ -10,6 +10,10 @@ tools:
   - grep_search
 can_delegate: false
 delegation_targets: []
+skills:
+  - architecture
+  - development-standard
+  - code-conventions
 ---
 
 # Role: Architecture & Design Patterns Architect

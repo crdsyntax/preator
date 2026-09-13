@@ -18,6 +18,10 @@ tools:
   - bash
 can_delegate: false
 delegation_targets: []
+skills:
+  - frontend-engineering
+  - code-conventions
+  - nextjs-react
 ---
 
 # Role: Frontend Engineer

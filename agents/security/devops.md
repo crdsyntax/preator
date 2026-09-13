@@ -18,6 +18,10 @@ tools:
   - bash
 can_delegate: false
 delegation_targets: []
+skills:
+  - security-devops
+  - code-conventions
+  - git-workflow
 ---
 
 # Role: Security DevOps Specialist
