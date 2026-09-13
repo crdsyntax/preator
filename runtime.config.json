@@ -1,6 +1,9 @@
 {
   "$schema": "./schemas/runtime.config.schema.json",
   "version": "1.0",
+  "standards": {
+    "profile": "default"
+  },
   "runtime": {
     "log_level": "info",
     "sessions_dir": ".agent/sessions",

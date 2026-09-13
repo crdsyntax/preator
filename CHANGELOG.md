@@ -2,6 +2,17 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-09-13
+
+Development standard capability (generic, project-agnostic).
+
+### Added
+- `runtime/core/architecture.js` + `standards/default.json`: declarative architecture profile and static validator (layer dependency direction, `no_any`, `no_console`, `no_comments`, `secrets`).
+- CLI `praetor arch check` and `praetor standards check` (architecture plus the profile's project commands as a quality gate).
+- `agents/architecture/architect.md` and `skills/development-standard/SKILL.md` (+ `references/architecture-patterns.md`), covering Git Flow, CI/CD gate, patterns, naming, typing, testing and secrets.
+- `docs/adr/template.md`; SDD spec `specs/development-standard/`; evaluation suite ARC-01..03.
+- `runtime.config.json` `standards.profile` selector.
+
 ## [0.7.1] - 2026-09-13
 
 ### Fixed

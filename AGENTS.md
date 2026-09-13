@@ -15,6 +15,7 @@ Specialists:
 - agents/qa/tester.md
 - agents/reviews/review.md
 - agents/security/devops.md
+- agents/architecture/architect.md
 
 Process:
 1 Analyze

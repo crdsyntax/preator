@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { defaultHostRegistry } from "../runtime/hosts/registry.js";
 import { AntigravityHostAdapter } from "../runtime/hosts/antigravity.js";
@@ -29,6 +30,8 @@ function printHelp() {
   \x1b[32mmigrate\x1b[0m [targetPath]  Re-seal legacy (v1) session state to v2; quarantine invalid sessions
   \x1b[32mdoctor\x1b[0m [targetPath]   Check seal key, session integrity and runtime configuration
   \x1b[32maudit\x1b[0m verify <id>   Reconstruct and verify a session's seal, event chain and trace
+  \x1b[32march\x1b[0m check         Validate the declared architecture profile (layers, deps, quality rules)
+  \x1b[32mstandards\x1b[0m check    Architecture + project commands from the standards profile (quality gate)
   \x1b[32mhook\x1b[0m [hostName]       Execute stdio interceptor for host (default: antigravity)
   \x1b[32mmcp\x1b[0m                   Execute Model Context Protocol (MCP) stdio server
   \x1b[32mversion\x1b[0m, \x1b[32m-v\x1b[0m           Print Praetor version
@@ -364,6 +367,69 @@ async function main() {
       process.exit(report.valid ? 0 : 1);
     } catch (err) {
       console.error(`\x1b[31mAudit error: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
+  }
+
+  if (cmd === "arch") {
+    if (args[1] !== "check") {
+      console.error("Usage: praetor arch check [targetPath] [--profile name] [--json]");
+      process.exit(1);
+    }
+    const target = args[2] && !args[2].startsWith("-") ? args[2] : process.cwd();
+    const profileName = args.includes("--profile") ? args[args.indexOf("--profile") + 1] : "default";
+    try {
+      const { validateArchitecture, loadArchitectureProfile } = await import("../runtime/core/architecture.js");
+      const profile = loadArchitectureProfile({ rootDir: target, profile: profileName });
+      const report = validateArchitecture(target, profile);
+
+      if (args.includes("--json")) {
+        console.log(JSON.stringify(report, null, 2));
+      } else {
+        console.log(`\x1b[1m\x1b[36m=== Praetor Architecture Check (${report.profile}) ===\x1b[0m`);
+        console.log(`Scanned ${report.scanned} file(s) under '${report.feature_root}'.`);
+        for (const violation of report.violations) {
+          console.log(`  \x1b[31m\u2718\x1b[0m ${violation.file}:${violation.line} [${violation.rule}] ${violation.message}`);
+        }
+        console.log(report.valid ? "\x1b[32mArchitecture OK\x1b[0m" : `\x1b[31m${report.violations.length} violation(s)\x1b[0m`);
+      }
+      process.exit(report.valid ? 0 : 1);
+    } catch (err) {
+      console.error(`\x1b[31mArch error: ${err.message}\x1b[0m`);
+      process.exit(1);
+    }
+  }
+
+  if (cmd === "standards") {
+    if (args[1] !== "check") {
+      console.error("Usage: praetor standards check [targetPath] [--profile name]");
+      process.exit(1);
+    }
+    const target = args[2] && !args[2].startsWith("-") ? args[2] : process.cwd();
+    const profileName = args.includes("--profile") ? args[args.indexOf("--profile") + 1] : "default";
+    try {
+      const { validateArchitecture, loadArchitectureProfile } = await import("../runtime/core/architecture.js");
+      const profile = loadArchitectureProfile({ rootDir: target, profile: profileName });
+      const report = validateArchitecture(target, profile);
+
+      console.log(`Architecture (${report.profile}): ${report.valid ? "\x1b[32mOK\x1b[0m" : `\x1b[31m${report.violations.length} violation(s)\x1b[0m`}`);
+      let ok = report.valid;
+
+      for (const entry of profile.commands || []) {
+        const label = typeof entry === "string" ? entry : entry.label || entry.command;
+        const command = typeof entry === "string" ? entry : entry.command;
+        if (!command) continue;
+        console.log(`Running '${label}' ...`);
+        const result = spawnSync(command, { cwd: target, stdio: "inherit", shell: true });
+        if (result.status !== 0) {
+          ok = false;
+          console.error(`\x1b[31m'${label}' failed\x1b[0m`);
+        }
+      }
+
+      process.exit(ok ? 0 : 1);
+    } catch (err) {
+      console.error(`\x1b[31mStandards error: ${err.message}\x1b[0m`);
       process.exit(1);
     }
   }

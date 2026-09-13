@@ -1,4 +1,4 @@
-export const VERSION = '0.7.1';
+export const VERSION = '0.8.0';
 export const NAME = 'Praetor';
 
 import * as core from './core/index.js';

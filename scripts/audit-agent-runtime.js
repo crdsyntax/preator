@@ -24,7 +24,7 @@ function check(title, condition) {
 }
 
 async function runAudit() {
-  console.log("\x1b[1m\x1b[36m=== Praetor Framework Audit (v0.7.1) ===\x1b[0m\n");
+  console.log("\x1b[1m\x1b[36m=== Praetor Framework Audit (v0.8.0) ===\x1b[0m\n");
 
   console.log("1. Lifecycle State Machine Audit...");
   const lm = new core.LifecycleMachine('REQUEST');
@@ -38,7 +38,8 @@ async function runAudit() {
   console.log("\n2. Catalogs & Profiles Audit...");
   const ac = new core.AgentCatalog();
   const agents = ac.loadFromDir('agents');
-  check("Loaded 9 canonical agent profiles", agents.length === 9);
+  check("Loaded canonical agent profiles (>=9)", agents.length >= 9);
+  check("Architecture agent is present", ac.has('architect'));
   check("Root orchestrator is present", ac.has('orchestrator'));
   check("Backend engineer is present", ac.has('backend-engineer'));
   check("Frontend engineer is present", ac.has('frontend-engineer'));
@@ -93,7 +94,7 @@ async function runAudit() {
   console.log("\n6. Runtime Configuration Audit...");
   check("runtime.config.json exists", fs.existsSync('runtime.config.json'));
   const cfg = JSON.parse(fs.readFileSync('runtime.config.json', 'utf8'));
-  check("Config version is 1.0 (Praetor v0.7.1)", cfg.version === '1.0');
+  check("Config version is 1.0 (Praetor v0.8.0)", cfg.version === '1.0');
   check("Config defines workspace boundaries", Boolean(cfg.workspace?.boundaries?.allowed));
 
   console.log("\n============================================================");
