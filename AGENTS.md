@@ -3,6 +3,7 @@
 Always load:
 - agents/core/engineering.md
 - agents/core/security.md
+- skills/code-conventions/SKILL.md
 
 Root Orchestrator:
 - agents/orchestrator.md

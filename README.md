@@ -1,9 +1,9 @@
 # Praetor
 
-> **Praetor v0.6.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
+> **Praetor v0.7.0 — Universal, Stack-Agnostic Governed Agent Runtime Framework**  
 > Formal 8-Phase Lifecycle FSM • Dual-Layer Security Policy • Anti-TOCTOU Argument Integrity • Cryptographic State Sealing • PowerShell De-obfuscation • Host Interceptors & MCP • 35-Scenario Benchmark Harness
 
-[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](package.json)
 [![CI Standard](https://img.shields.io/badge/CI-Zero%20Regressions-brightgreen.svg)]()
 [![Audit](https://img.shields.io/badge/Audit-30%2F30%20Passed-brightgreen.svg)]()
 [![Hardening](https://img.shields.io/badge/Hardening-HRD--01..06%20Passed-brightgreen.svg)]()

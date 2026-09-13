@@ -105,7 +105,7 @@ export class McpTransport {
           },
           serverInfo: {
             name: 'praetor',
-            version: '0.6.0'
+            version: '0.7.0'
           }
         }
       };

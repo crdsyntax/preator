@@ -24,7 +24,7 @@ function check(title, condition) {
 }
 
 async function runAudit() {
-  console.log("\x1b[1m\x1b[36m=== Praetor Framework Audit (v0.6.0) ===\x1b[0m\n");
+  console.log("\x1b[1m\x1b[36m=== Praetor Framework Audit (v0.7.0) ===\x1b[0m\n");
 
   console.log("1. Lifecycle State Machine Audit...");
   const lm = new core.LifecycleMachine('REQUEST');
@@ -47,7 +47,8 @@ async function runAudit() {
 
   const sc = new core.SkillCatalog();
   const skills = sc.loadFromDir('skills');
-  check("Loaded 4 multi-stack skills", skills.length === 4);
+  check("Loaded multi-stack skills (>=4)", skills.length >= 4);
+  check("Code conventions skill is present", sc.has('code-conventions'));
   check("Rust Cargo skill is present", sc.has('rust-cargo'));
   check("Next.js React skill is present", sc.has('nextjs-react'));
   check("Database SQL skill is present", sc.has('database-sql'));
@@ -92,7 +93,7 @@ async function runAudit() {
   console.log("\n6. Runtime Configuration Audit...");
   check("runtime.config.json exists", fs.existsSync('runtime.config.json'));
   const cfg = JSON.parse(fs.readFileSync('runtime.config.json', 'utf8'));
-  check("Config version is 1.0 (Praetor v0.6.0)", cfg.version === '1.0');
+  check("Config version is 1.0 (Praetor v0.7.0)", cfg.version === '1.0');
   check("Config defines workspace boundaries", Boolean(cfg.workspace?.boundaries?.allowed));
 
   console.log("\n============================================================");

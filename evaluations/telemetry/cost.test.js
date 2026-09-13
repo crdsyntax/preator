@@ -9,6 +9,8 @@ import { resolvePricing, estimateCost } from '../../runtime/telemetry/pricing.js
 import { recordOpencodeLlmUsage } from '../../runtime/hosts/opencode-plugin-core.js';
 import { EventLog } from '../../runtime/core/events.js';
 import { verifyChainSegment } from '../../runtime/core/sealing.js';
+import { verifySession } from '../../scripts/audit-session.js';
+import { runDoctor } from '../../scripts/doctor.js';
 
 let passed = 0;
 let total = 0;
@@ -119,6 +121,56 @@ await test('TELE-05: host helper appends a valid llm.completed event (AC5)', () 
 
     const chain = verifyChainSegment(events);
     assert.strictEqual(chain.valid, true, `chain must stay valid (${chain.reason})`);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test('TELE-06: audit verify reports accumulated cost (AC6)', async () => {
+  const dir = makeDir();
+  try {
+    fs.writeFileSync(path.join(dir, 'runtime.config.json'), JSON.stringify({ version: '1.0' }));
+    const session = createSession({
+      sessionId: 'tele6',
+      initialPhase: 'EXECUTE',
+      sessionsRoot: path.join(dir, '.agent', 'sessions')
+    });
+    const driver = new ProviderDriver({
+      adapter: new CostAdapter({ model: 'gpt-4o', usage: { prompt_tokens: 1000, completion_tokens: 500 } }),
+      session
+    });
+    await driver.step();
+    session.state.save();
+
+    const report = verifySession('tele6', { targetDir: dir });
+    assert.strictEqual(report.valid, true, JSON.stringify(report));
+    assert.strictEqual(report.usage.cost_usd, 0.0075);
+    assert.strictEqual(report.usage.by_model['gpt-4o'].cost_usd, 0.0075);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test('TELE-07: doctor aggregates cost across sessions (AC6)', async () => {
+  const dir = makeDir();
+  try {
+    fs.writeFileSync(path.join(dir, 'runtime.config.json'), JSON.stringify({ version: '1.0' }));
+    const session = createSession({
+      sessionId: 'tele7',
+      initialPhase: 'EXECUTE',
+      sessionsRoot: path.join(dir, '.agent', 'sessions')
+    });
+    const driver = new ProviderDriver({
+      adapter: new CostAdapter({ model: 'claude-sonnet-4', usage: { prompt_tokens: 1000, completion_tokens: 500 } }),
+      session
+    });
+    await driver.step();
+    session.state.save();
+
+    const report = runDoctor(dir);
+    assert.strictEqual(report.cost.total_usd, 0.0105);
+    assert.ok(report.cost.by_model.includes('claude-sonnet-4'));
+    assert.strictEqual(report.cost.sessions, 1);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

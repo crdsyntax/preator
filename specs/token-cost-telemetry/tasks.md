@@ -21,6 +21,9 @@
   - Files: `runtime/hosts/templates/opencode-plugin.js`
 - [ ] **T6** — Wire the suite into `bun run test` and update docs.
   - Files: `package.json`, `README.md`, `CHANGELOG.md`
+- [ ] **T7** (R7, AC6) — Expose cost in the CLI (audit verify + doctor).
+  - Files: `scripts/audit-session.js`, `scripts/doctor.js`
+  - Tests: `cost::tests::{audit_verify_cost, doctor_cost}`
 
 ## Verification
 

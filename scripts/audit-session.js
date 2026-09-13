@@ -5,6 +5,29 @@ import { validateTraceSequence } from '../runtime/core/lifecycle.js';
 import { EventLog } from '../runtime/core/events.js';
 import { stateFieldsFrom } from './migrate-runtime.js';
 
+export function aggregateUsage(events = []) {
+  let totalTokens = 0;
+  let costUsd = 0;
+  const byModel = {};
+
+  for (const event of events) {
+    if (!event || event.event_type !== 'llm.completed') continue;
+    const model = event.model || 'unknown';
+    const tokens = Number(event.total_tokens) || 0;
+    const cost = Number(event.cost_usd) || 0;
+
+    totalTokens += tokens;
+    costUsd += cost;
+
+    const agg = byModel[model] || { total_tokens: 0, cost_usd: 0 };
+    agg.total_tokens += tokens;
+    agg.cost_usd = Number((agg.cost_usd + cost).toFixed(6));
+    byModel[model] = agg;
+  }
+
+  return { total_tokens: totalTokens, cost_usd: Number(costUsd.toFixed(6)), by_model: byModel };
+}
+
 export function verifySession(sessionId, { targetDir = process.cwd(), key = undefined, keyPath = null } = {}) {
   if (!sessionId || typeof sessionId !== 'string') {
     const err = new Error('verifySession requires a sessionId');
@@ -60,6 +83,7 @@ export function verifySession(sessionId, { targetDir = process.cwd(), key = unde
     },
     phase: data.current_phase,
     status: data.status,
-    events: events.length
+    events: events.length,
+    usage: aggregateUsage(events)
   };
 }

@@ -1,6 +1,6 @@
 {
   "name": "praetor",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Praetor: Universal Governed Agent Runtime Framework",
   "type": "module",
   "main": "runtime/index.js",

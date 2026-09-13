@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PolicyEngine } from '../runtime/core/policy.js';
 import { SEAL_VERSION, verifySeal, resolveStateKey } from '../runtime/core/sealing.js';
+import { EventLog } from '../runtime/core/events.js';
 import { stateFieldsFrom } from './migrate-runtime.js';
 
 export function runDoctor(targetDir = process.cwd(), { key = undefined, keyPath = null } = {}) {
@@ -27,6 +28,10 @@ export function runDoctor(targetDir = process.cwd(), { key = undefined, keyPath 
   let v2 = 0;
   let invalid = 0;
   let missing = 0;
+  let totalCostUsd = 0;
+  let totalTokens = 0;
+  let costSessions = 0;
+  const costModels = new Set();
 
   if (fs.existsSync(sessionsDir)) {
     for (const entry of fs.readdirSync(sessionsDir, { withFileTypes: true })) {
@@ -52,12 +57,33 @@ export function runDoctor(targetDir = process.cwd(), { key = undefined, keyPath 
       } catch {
         invalid++;
       }
+
+      const eventsFile = path.join(sessionsDir, entry.name, 'events.jsonl');
+      if (fs.existsSync(eventsFile)) {
+        let sessionCost = 0;
+        for (const event of EventLog.readLogFile(eventsFile)) {
+          if (event && event.event_type === 'llm.completed') {
+            sessionCost += Number(event.cost_usd) || 0;
+            totalTokens += Number(event.total_tokens) || 0;
+            costModels.add(event.model || 'unknown');
+          }
+        }
+        if (sessionCost > 0) {
+          costSessions++;
+          totalCostUsd += sessionCost;
+        }
+      }
     }
   }
 
   add('sessions', invalid === 0, invalid === 0
     ? `${v1} legacy (v1), ${v2} sealed (v2), 0 invalid${missing ? `, ${missing} without state` : ''}`
     : `${invalid} session(s) with invalid seal (run 'praetor migrate')`);
+
+  totalCostUsd = Number(totalCostUsd.toFixed(6));
+  add('cost', true, totalCostUsd > 0
+    ? `$${totalCostUsd} across ${costSessions} session(s); models: ${[...costModels].join(', ')}`
+    : 'No llm.completed usage recorded yet');
 
   const keyOk = Boolean(resolvedKey) || v2 === 0;
   add('seal-key', keyOk, resolvedKey
@@ -115,5 +141,13 @@ export function runDoctor(targetDir = process.cwd(), { key = undefined, keyPath 
     : hostIssues.join('; '));
 
   const healthy = checks.every(c => c.ok);
-  return { target: targetDir, healthy, checks, sessions: { v1, v2, invalid, missing }, hosts: hostsDetected, hostIssues };
+  return {
+    target: targetDir,
+    healthy,
+    checks,
+    sessions: { v1, v2, invalid, missing },
+    cost: { total_usd: totalCostUsd, total_tokens: totalTokens, by_model: [...costModels], sessions: costSessions },
+    hosts: hostsDetected,
+    hostIssues
+  };
 }

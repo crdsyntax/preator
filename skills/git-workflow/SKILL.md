@@ -23,6 +23,9 @@ This skill outlines safe git practices aligned with runtime security policies.
    - Any remote push operation requires explicit prior human confirmation.
 3. **Atomic Commits:**
    - Keep commits focused on a single logical change.
-   - Use conventional commit messages (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`).
+   - Format: `<type>: <module>/<submodule> <description>`. Allowed types: `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`, `build:`, `ci:`.
+   - **No parenthesized scopes** (❌ `feat(clients): ...`, ✅ `feat: clients/search add debounce`).
 4. **Pre-commit Gate:**
    - Before committing, run all project linters and tests to guarantee zero regressions.
+5. **Execution Boundaries:**
+   - Never run `git commit`, `git push`, `git merge`, or push to `release` unless the user explicitly requests it. Local edits do not imply committing.

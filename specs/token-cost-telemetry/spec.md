@@ -18,6 +18,7 @@ Restore per-model token and **real cost** telemetry that existed in Praetor's pr
 - **R4:** `ProviderDriver` emits a `llm.completed` event (when the session exposes an event log) with `model`, token fields and `cost_usd`.
 - **R5:** `ModelTurnResponse` carries an optional `model` field.
 - **R6:** The OpenCode host integration captures the model per session and, on LLM completion, records an `llm.completed` event into the session's hash-chained log, preferring the host-provided cost when present.
+- **R7:** `praetor audit verify <sessionId>` reports the session's accumulated tokens and cost, and `praetor doctor` reports the total cost across sessions (with models).
 
 ## Acceptance Criteria
 
@@ -26,6 +27,7 @@ Restore per-model token and **real cost** telemetry that existed in Praetor's pr
 - **AC3** (R3, R4): After a turn with usage `{prompt_tokens:1000, completion_tokens:500}` and model `gpt-4o`, `driver.totalUsage.cost_usd === 0.0075` and the session log contains one `llm.completed` with `cost_usd === 0.0075`.
 - **AC4** (R5): `createModelTurnResponse({ model: 'gpt-4o' }).model === 'gpt-4o'`.
 - **AC5** (R6): `recordOpencodeLlmUsage(sessionId, { model:'sonnet', inputTokens:1000, outputTokens:500 }, { cwd })` appends `llm.completed` with `cost_usd === 0.0105` (3.00/1M in, 15.00/1M out) and the event chain remains valid.
+- **AC6** (R7): `verifySession` returns `usage.cost_usd` for a session whose log has `llm.completed`; `runDoctor` returns `cost.total_usd` and `cost.by_model` aggregating the same events.
 
 ## Contracts / Interfaces
 
@@ -62,3 +64,4 @@ Restore per-model token and **real cost** telemetry that existed in Praetor's pr
 | R3, R4 | T2 | `cost::tests::provider_driver_cost` (AC3) |
 | R5 | T3 | `cost::tests::turn_response_model` (AC4) |
 | R6 | T4, T5 | `cost::tests::opencode_usage_event` (AC5) |
+| R7 | T7 | `cost::tests::{audit_verify_cost, doctor_cost}` (AC6) |

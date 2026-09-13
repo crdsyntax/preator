@@ -2,6 +2,18 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-09-13
+
+Team code conventions and cost visibility.
+
+### Added
+- `skills/code-conventions/SKILL.md`: team coding conventions ported from the project's governing standard— zero `any`, no `console.*`, no secrets, layering (domain must not depend on application/infrastructure; ports vs adapters), enums for closed domains, `bun`/`pnpm` only (never `npm`), and the governed commit format and execution boundaries. Referenced from `AGENTS.md` and `agents/core/engineering.md`.
+- Cost visibility: `praetor audit verify` reports per-session tokens/cost (`usage`) and `praetor doctor` reports total cost across sessions with models (`cost`).
+
+### Changed
+- `skills/git-workflow/SKILL.md`: commit format `<type>: <module>/<submodule> <description>` (no parenthesized scopes) plus execution boundaries (never commit/push/merge or push to `release` without an explicit request).
+- Telemetry suite extended with TELE-06 (audit) and TELE-07 (doctor).
+
 ## [0.6.0] - 2026-09-13
 
 Token & cost telemetry per model (restored from an earlier runtime).
