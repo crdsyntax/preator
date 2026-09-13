@@ -2,6 +2,11 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - 2026-09-13
+
+### Changed
+- Adopted a patch-only versioning policy until 1.0.0: increment the last numeric field each release, carrying on overflow (`0.9.99 -> 0.10.0`, `0.99.99 -> 1.0.0`). Documented in `AGENTS.md`.
+
 ## [0.9.0] - 2026-09-13
 
 Architecture routing and a stricter profile.
