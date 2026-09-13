@@ -2,6 +2,11 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] - 2026-09-13
+
+### Fixed
+- Execution-boundary wording now refers to **protected branches in general** (`main`/`production`, `dev`/`developer`, `release`, etc.) instead of a single `release` branch, across `skills/code-conventions/SKILL.md` and `skills/git-workflow/SKILL.md`.
+
 ## [0.7.0] - 2026-09-13
 
 Team code conventions and cost visibility.
@@ -11,7 +16,7 @@ Team code conventions and cost visibility.
 - Cost visibility: `praetor audit verify` reports per-session tokens/cost (`usage`) and `praetor doctor` reports total cost across sessions with models (`cost`).
 
 ### Changed
-- `skills/git-workflow/SKILL.md`: commit format `<type>: <module>/<submodule> <description>` (no parenthesized scopes) plus execution boundaries (never commit/push/merge or push to `release` without an explicit request).
+- `skills/git-workflow/SKILL.md`: commit format `<type>: <module>/<submodule> <description>` (no parenthesized scopes) plus execution boundaries (never commit/push/merge into a protected branch without an explicit request).
 - Telemetry suite extended with TELE-06 (audit) and TELE-07 (doctor).
 
 ## [0.6.0] - 2026-09-13

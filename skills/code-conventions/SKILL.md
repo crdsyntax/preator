@@ -49,4 +49,4 @@ Portable coding conventions derived from the project's governing standard. They 
 - **Git Flow**; quality gate (lint + type-check + tests) must pass before commit/push.
 - Commit format: `<type>: <module>/<submodule> <description>` — allowed types `feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`, `build:`, `ci:`. **No parenthesized scopes** (❌ `feat(x): ...`).
   - ✅ `fix: quotations/client resolve recipient mapping`
-- **Never commit, push, merge, or push to `release` without an explicit user request.** Local edits do not imply committing.
+- **Never commit, push, or merge into protected branches** (e.g. `main`/`production`, `dev`/`developer`, `release`) **without an explicit user request.** Local edits do not imply committing.

@@ -28,4 +28,4 @@ This skill outlines safe git practices aligned with runtime security policies.
 4. **Pre-commit Gate:**
    - Before committing, run all project linters and tests to guarantee zero regressions.
 5. **Execution Boundaries:**
-   - Never run `git commit`, `git push`, `git merge`, or push to `release` unless the user explicitly requests it. Local edits do not imply committing.
+   - Never run `git commit`, `git push`, or `git merge` into a protected branch (e.g. `main`/`production`, `dev`/`developer`, `release`) unless the user explicitly requests it. Local edits do not imply committing.
