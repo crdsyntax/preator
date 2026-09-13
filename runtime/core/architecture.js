@@ -174,6 +174,15 @@ export function validateArchitecture(rootDir = process.cwd(), profile = DEFAULT_
         }
       }
     }
+
+    if (profile.structure?.enforce_layers && !layer) {
+      violations.push({
+        file: file.rel,
+        line: 0,
+        rule: 'structure',
+        message: `File is outside every declared layer (${profile.layers.join(', ')}).`
+      });
+    }
   }
 
   const counts = violations.reduce((acc, v) => {

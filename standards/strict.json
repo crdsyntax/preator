@@ -1,0 +1,25 @@
+{
+  "pattern": "screaming-clean",
+  "feature_root": "src",
+  "layers": ["presentation", "application", "domain", "infrastructure"],
+  "structure": {
+    "enforce_layers": true
+  },
+  "dependency_rules": [
+    { "from": "domain", "disallow": ["application", "infrastructure", "presentation"] },
+    { "from": "application", "disallow": ["infrastructure", "presentation"] }
+  ],
+  "rules": {
+    "no_any": true,
+    "no_console": true,
+    "no_comments": true,
+    "enums_for_closed_sets": false,
+    "secrets": true
+  },
+  "ignore": ["node_modules", ".git", "dist", "build", "target", "coverage", "update-dist", ".agent"],
+  "commands": [
+    { "label": "type-check", "command": "bun run typecheck" },
+    { "label": "lint", "command": "bun run lint" },
+    { "label": "test", "command": "bun run test" }
+  ]
+}

@@ -30,6 +30,11 @@ const DEFAULT_SPECIALIST_ROUTES = [
   {
     id: 'code-reviewer',
     keywords: ['review', 'audit', 'compliance']
+  },
+  {
+    id: 'architect',
+    keywords: ['architecture', 'design pattern', 'design patterns', 'screaming', 'hexagonal', 'ports and adapters', 'ports-and-adapters', 'domain model', 'layering', 'adr'],
+    exact: ['adr', 'pattern', 'patterns']
   }
 ];
 

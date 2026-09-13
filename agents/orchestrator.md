@@ -17,6 +17,7 @@ delegation_targets:
   - qa-tester
   - code-reviewer
   - security-devops
+  - architect
 ---
 
 # Role: Universal Root Orchestrator
@@ -89,6 +90,7 @@ When delegating to specialists:
 | Test design, automation & verification | `qa-tester` | Verify / Execute |
 | Code review & diff inspection | `code-reviewer` | Read-only |
 | CI/CD, deployment & infrastructure security | `security-devops` | Execute in `EXECUTE` |
+| Architecture & design patterns (ADR, layering) | `architect` | Read-only |
 
 ---
 

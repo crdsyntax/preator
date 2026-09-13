@@ -2,7 +2,8 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { validateArchitecture, DEFAULT_ARCHITECTURE_PROFILE } from '../../runtime/core/architecture.js';
+import { validateArchitecture, loadArchitectureProfile, DEFAULT_ARCHITECTURE_PROFILE } from '../../runtime/core/architecture.js';
+import { inferSpecialists } from '../../runtime/core/executor.js';
 
 let passed = 0;
 let total = 0;
@@ -84,6 +85,20 @@ test('ARC-03: no_any, no_console and secrets are detected; tests are exempt', ()
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('ARC-04: architecture goals route to the architect specialist', () => {
+  const detected = inferSpecialists('design the architecture and pick a design pattern with an ADR');
+  assert.ok(detected.includes('architect'), JSON.stringify(detected));
+});
+
+test('ARC-05: the strict profile enables no_comments and enforce_layers', () => {
+  const profile = loadArchitectureProfile({ rootDir: process.cwd(), profile: 'strict' });
+  assert.strictEqual(profile.rules.no_comments, true);
+  assert.strictEqual(profile.structure.enforce_layers, true);
+
+  const fallback = loadArchitectureProfile({ rootDir: process.cwd(), profile: 'does-not-exist' });
+  assert.strictEqual(fallback.pattern, DEFAULT_ARCHITECTURE_PROFILE.pattern);
 });
 
 console.log(`\n============================================================`);

@@ -2,6 +2,18 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-09-13
+
+Architecture routing and a stricter profile.
+
+### Added
+- Automatic routing: architecture/pattern goals delegate to the `architect` specialist; the orchestrator's delegation targets include `architect`.
+- `structure.enforce_layers` rule (flags files outside every declared layer).
+- Example profile `standards/strict.json` (enforces comments-off, layer structure and project commands).
+
+### Changed
+- Architecture suite extended with ARC-04 (routing) and ARC-05 (strict profile).
+
 ## [0.8.0] - 2026-09-13
 
 Development standard capability (generic, project-agnostic).
