@@ -3,6 +3,9 @@ import path from 'node:path';
 import { createSession } from '../session.js';
 import { SessionState } from '../core/state.js';
 import { AgentCatalog } from '../core/agents.js';
+import { EventLog } from '../core/events.js';
+import { resolveStateKey } from '../core/sealing.js';
+import { createUsageRecord } from '../telemetry/pricing.js';
 import { HostDriver } from './driver.js';
 import { createHostToolInvocation } from './contracts.js';
 
@@ -61,4 +64,43 @@ export function evaluateOpencodeTool(toolName, args = {}, { cwd = process.cwd(),
     canonical_tool: decision.canonical_tool,
     canonical_hash: decision.canonical_hash
   };
+}
+
+export function recordOpencodeLlmUsage(sessionId, usage = {}, { cwd = process.cwd(), costUsd = null } = {}) {
+  const record = createUsageRecord({
+    model: usage.model || null,
+    inputTokens: usage.inputTokens || 0,
+    outputTokens: usage.outputTokens || 0,
+    reasoningTokens: usage.reasoningTokens || 0,
+    cacheReadTokens: usage.cacheReadTokens || 0,
+    cacheWriteTokens: usage.cacheWriteTokens || 0,
+    costUsd
+  });
+
+  const safeSessionId = sessionId || 'unsorted';
+  const logDir = path.join(cwd, '.agent', 'sessions', safeSessionId);
+
+  try {
+    const events = new EventLog({
+      sessionId: safeSessionId,
+      logDir,
+      key: resolveStateKey({ allowLegacy: true }),
+      loadExisting: true
+    });
+    events.append('llm.completed', {
+      model: record.model,
+      input_tokens: record.input_tokens,
+      output_tokens: record.output_tokens,
+      reasoning_tokens: record.reasoning_tokens,
+      cache_read_tokens: record.cache_read_tokens,
+      cache_write_tokens: record.cache_write_tokens,
+      total_tokens: record.total_tokens,
+      cost_usd: record.cost_usd,
+      pricing_label: record.pricing_label
+    });
+  } catch {
+    // Telemetry must never break the host runtime.
+  }
+
+  return record;
 }

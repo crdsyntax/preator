@@ -1,4 +1,5 @@
 import { TURN_TYPES, createModelTurnRequest } from './contracts.js';
+import { createUsageRecord } from '../telemetry/pricing.js';
 
 export class ProviderDriver {
   constructor({
@@ -32,7 +33,9 @@ export class ProviderDriver {
     this.totalUsage = {
       prompt_tokens: 0,
       completion_tokens: 0,
-      total_tokens: 0
+      total_tokens: 0,
+      cost_usd: 0,
+      by_model: {}
     };
 
     this.lastDenial = null;
@@ -60,6 +63,35 @@ export class ProviderDriver {
       this.totalUsage.prompt_tokens += turnResponse.usage.prompt_tokens || 0;
       this.totalUsage.completion_tokens += turnResponse.usage.completion_tokens || 0;
       this.totalUsage.total_tokens += turnResponse.usage.total_tokens || 0;
+
+      const usageRecord = createUsageRecord({
+        model: turnResponse.model || null,
+        inputTokens: turnResponse.usage.prompt_tokens || 0,
+        outputTokens: turnResponse.usage.completion_tokens || 0,
+        reasoningTokens: turnResponse.usage.reasoning_tokens || 0,
+        cacheReadTokens: turnResponse.usage.cache_read_tokens || 0,
+        cacheWriteTokens: turnResponse.usage.cache_write_tokens || 0
+      });
+
+      this.totalUsage.cost_usd = Number((this.totalUsage.cost_usd + usageRecord.cost_usd).toFixed(6));
+      const agg = this.totalUsage.by_model[usageRecord.model] || { total_tokens: 0, cost_usd: 0 };
+      agg.total_tokens += usageRecord.total_tokens;
+      agg.cost_usd = Number((agg.cost_usd + usageRecord.cost_usd).toFixed(6));
+      this.totalUsage.by_model[usageRecord.model] = agg;
+
+      if (this.session?.events && typeof this.session.events.append === 'function') {
+        this.session.events.append('llm.completed', {
+          phase: currentPhase,
+          model: usageRecord.model,
+          input_tokens: usageRecord.input_tokens,
+          output_tokens: usageRecord.output_tokens,
+          reasoning_tokens: usageRecord.reasoning_tokens,
+          cache_read_tokens: usageRecord.cache_read_tokens,
+          cache_write_tokens: usageRecord.cache_write_tokens,
+          total_tokens: usageRecord.total_tokens,
+          cost_usd: usageRecord.cost_usd
+        });
+      }
     }
 
     this.trace.push({

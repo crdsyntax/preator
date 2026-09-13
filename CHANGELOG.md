@@ -2,6 +2,17 @@
 
 All notable changes to Praetor are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-09-13
+
+Token & cost telemetry per model (restored from an earlier runtime).
+
+### Added
+- `runtime/telemetry/pricing.js`: data-driven per-model pricing (USD/1M), `resolvePricing`, `estimateCost`, `createUsageRecord`.
+- `llm.completed` event carrying model, token breakdown and `cost_usd`, emitted by `ProviderDriver` and by the OpenCode host helper `recordOpencodeLlmUsage`.
+- `ProviderDriver.totalUsage` now includes `cost_usd` and `by_model`.
+- OpenCode plugin captures the model (`chat.message`) and LLM usage (`message.updated`), preferring the host-provided cost.
+- Evaluation suite `evaluations/telemetry/cost.test.js` (TELE-01..05).
+
 ## [0.5.0] - 2026-09-12
 
 Auto-load release: project-scoped host integration with hard enforcement for OpenCode, corrected Antigravity hook schema and MCP exposure.

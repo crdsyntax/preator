@@ -92,6 +92,7 @@ export function createModelTurnResponse({
   content = '',
   toolCalls = [],
   targetPhase = null,
+  model = null,
   usage = {},
   raw = null
 }) {
@@ -104,6 +105,7 @@ export function createModelTurnResponse({
       args: tc.args && typeof tc.args === 'object' ? { ...tc.args } : {}
     })) : [],
     target_phase: targetPhase || null,
+    model: model || null,
     usage: {
       prompt_tokens: usage.prompt_tokens || 0,
       completion_tokens: usage.completion_tokens || 0,
